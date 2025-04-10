@@ -13,30 +13,60 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import useRedirect from '../../../../shared/hooks/useRedirect';
+import { authUseCase } from '../../../../../app/infrastructure/DI/AuthContainer';
+
+// Ajusta la ruta de import según la ubicación real de tu archivo AuthContainer
 
 const LoginUser: React.FC = () => {
-
   const redirect = useRedirect();
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const toast = useToast();
 
-  // Maneja el envío del formulario
-  const handleSubmit = (e: React.FormEvent) => {
+  // Maneja el envío del formulario (ahora es async)
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Lógica de autenticación
-    console.log({ email, password });
-    toast({
-      title: 'Intentando iniciar sesión...',
-      description: `Email: ${email}`,
-      status: 'info',
-      duration: 3000,
-      isClosable: true,
-    });
+
+    try {
+      // Opcional: Toast informando que iniciaremos la sesión
+      toast({
+        title: 'Iniciando sesión...',
+        description: `Verificando credenciales`,
+        status: 'info',
+        duration: 2000,
+        isClosable: true,
+      });
+
+      // Llamamos al caso de uso de Auth para login
+      const user = await authUseCase.login(email, password);
+      console.log(user);
+      
+
+      // Si todo va bien, mostramos un toast de éxito
+      toast({
+        title: 'Sesión iniciada',
+        description: `Bienvenido: ${user.name}`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      // Redirige a donde necesites, por ejemplo, a la ruta "/dashboard"
+      redirect('/dashboard');
+
+    } catch (error: any) {
+      // Si ocurre un error, mostramos un toast de error
+      toast({
+        title: 'Error al iniciar sesión',
+        description: error?.message || 'Ocurrió un error al autenticar',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   };
 
-  // Paleta de colores más neutra y formal
+  // Paleta de colores
   const backgroundColor = useColorModeValue('gray.100', 'gray.800');
   const boxBg = useColorModeValue('white', 'gray.700');
   const inputBg = useColorModeValue('white', 'gray.600');
@@ -60,12 +90,7 @@ const LoginUser: React.FC = () => {
         maxW="400px"
       >
         <VStack spacing={6} as="form" onSubmit={handleSubmit}>
-          <Heading
-            as="h1"
-            size="lg"
-            textAlign="center"
-            color={textColor}
-          >
+          <Heading as="h1" size="lg" textAlign="center" color={textColor}>
             Iniciar Sesión
           </Heading>
 
@@ -100,11 +125,7 @@ const LoginUser: React.FC = () => {
           </FormControl>
 
           {/* Botón de inicio de sesión */}
-          <Button
-            type="submit"
-            colorScheme="blue"
-            width="full"
-          >
+          <Button type="submit" colorScheme="blue" width="full">
             Iniciar Sesión
           </Button>
 
