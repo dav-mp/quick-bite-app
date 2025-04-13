@@ -3,13 +3,8 @@
 import { IAuthRepository } from "../../domain/repositories/IAuthRepository";
 import { User } from "../../domain/models/User";
 import { userAdapter } from "../../application/adapters/UserAdapter";
-import axios from "axios";
+import { axiosInstance } from "../api/axionInstance";
 
-
-export const axiosInstance = axios.create({
-    // baseURL: 'https://t2orimport.meta.env.xjhjd3.execute-api.us-east-1.amazonaws.com', // Aquí pondrías tu endpoint real
-    baseURL: "https://quickbite-apiauthuser.onrender.com/api/auth", // Aquí pondrías tu endpoint real
-});
   
 
 export class AuthRepository implements IAuthRepository {
@@ -27,7 +22,7 @@ export class AuthRepository implements IAuthRepository {
     userName?: string
   ): Promise<User> {
     try {
-      const resp = await axiosInstance.post("/register", {
+      const resp = await axiosInstance.post("/api/authuser/register", {
         name,
         email,
         password,
@@ -45,7 +40,7 @@ export class AuthRepository implements IAuthRepository {
 
   async confirmUser(email: string, code: string): Promise<any> {
     try {
-      const resp = await axiosInstance.post("/userConfirm", {
+      const resp = await axiosInstance.post("/api/authuser/userConfirm", {
         email,
         confirmationCode: code
       });
@@ -59,13 +54,17 @@ export class AuthRepository implements IAuthRepository {
 
   async loginUser(email: string, password: string): Promise<User> {
     try {
-      const resp = await axiosInstance.post("/login", {
+      const resp = await axiosInstance.post("/api/authuser/login", {
         email, 
         password 
       });
+      console.log(resp);
+      
       // Adaptamos la respuesta a un User de dominio
       return userAdapter(resp.data);
     } catch (error: any) {
+      console.log(error);
+      
       throw new Error(error.response?.data?.message || error.message);
     }
   }

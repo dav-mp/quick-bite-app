@@ -58,7 +58,7 @@ const RegisterUser: React.FC = () => {
       // Si se registró correctamente
       toast({
         title: 'Usuario registrado',
-        description: `Bienvenido, ${newUser.name}`,
+        description: `Bienvenido, ${newUser.fullName}`,
         status: 'success',
         duration: 3000,
         isClosable: true,

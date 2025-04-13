@@ -1,12 +1,14 @@
-// src/app/domain/models/User.ts
-
 /**
  * Modelo de dominio para Usuario.
+ * Solo contiene los campos que solicitaste:
+ *  - email
+ *  - fullName
+ *  - accessToken
+ *  - refreshToken
  */
 export interface User {
-    id: string;
-    name: string;
-    email: string;
-    role: string[]; 
-  }
-  
+  email: string;
+  fullName: string;
+  accessToken: string;
+  refreshToken: string;
+}

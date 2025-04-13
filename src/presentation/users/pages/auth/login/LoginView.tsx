@@ -14,6 +14,8 @@ import {
 } from '@chakra-ui/react';
 import useRedirect from '../../../../shared/hooks/useRedirect';
 import { authUseCase } from '../../../../../app/infrastructure/DI/AuthContainer';
+import { setDataCookies } from '../../../../../app/infrastructure/service/CookiesService';
+import { DataCookies } from '../../../../../app/domain/models/cookies/DataCookies';
 
 // Ajusta la ruta de import según la ubicación real de tu archivo AuthContainer
 
@@ -40,12 +42,17 @@ const LoginUser: React.FC = () => {
       // Llamamos al caso de uso de Auth para login
       const user = await authUseCase.login(email, password);
       console.log(user);
+
+      setDataCookies( DataCookies.ACCESSTOKEN, user.accessToken )
+      setDataCookies( DataCookies.EMAIL, user.email )
+      setDataCookies( DataCookies.REFESHTOKEN, user.refreshToken )
+      setDataCookies( DataCookies.USERNAME, user.fullName )
       
 
       // Si todo va bien, mostramos un toast de éxito
       toast({
         title: 'Sesión iniciada',
-        description: `Bienvenido: ${user.name}`,
+        description: `Bienvenido: ${user.fullName}`,
         status: 'success',
         duration: 3000,
         isClosable: true,
