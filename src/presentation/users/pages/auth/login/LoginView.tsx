@@ -15,7 +15,7 @@ import {
 import useRedirect from '../../../../shared/hooks/useRedirect';
 import { authUseCase } from '../../../../../app/infrastructure/DI/AuthContainer';
 import { setDataCookies } from '../../../../../app/infrastructure/service/CookiesService';
-import { DataCookies } from '../../../../../app/domain/models/cookies/DataCookies';
+import { DataCookies, UserType } from '../../../../../app/domain/models/cookies/DataCookies';
 
 // Ajusta la ruta de import según la ubicación real de tu archivo AuthContainer
 
@@ -45,8 +45,9 @@ const LoginUser: React.FC = () => {
 
       setDataCookies( DataCookies.ACCESSTOKEN, user.accessToken )
       setDataCookies( DataCookies.EMAIL, user.email )
-      setDataCookies( DataCookies.REFESHTOKEN, user.refreshToken )
+      setDataCookies( DataCookies.REFRESHTOKEN, user.refreshToken )
       setDataCookies( DataCookies.USERNAME, user.fullName )
+      setDataCookies( UserType.USER, UserType.USER )
       
 
       // Si todo va bien, mostramos un toast de éxito
@@ -59,7 +60,7 @@ const LoginUser: React.FC = () => {
       });
 
       // Redirige a donde necesites, por ejemplo, a la ruta "/dashboard"
-      redirect('/dashboard');
+      redirect('/user');
 
     } catch (error: any) {
       // Si ocurre un error, mostramos un toast de error
