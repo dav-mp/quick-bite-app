@@ -1,12 +1,11 @@
 import { Routes, Route } from "react-router-dom";
-// Importa las páginas/containers que tendrá el usuario externo
-// ... etc
+import StoreShowcase from "../components/store-showcase/store-showcase";
 
 const ExternalRoutes = () => {
   return (
     <Routes>
-      <Route path="/ola" element={<h1>OLAAAAAAA</h1>} />
-      {/* Puedes seguir agregando rutas específicas para usuario externo */}
+      <Route path="products" element={<StoreShowcase />} />
+      {/* otras rutas hijas de /user */}
     </Routes>
   );
 };

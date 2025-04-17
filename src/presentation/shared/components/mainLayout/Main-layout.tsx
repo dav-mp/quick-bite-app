@@ -17,7 +17,7 @@ export default function MainLayout() {
         <Sidebar isOpen={isOpen} onClose={onClose} />
 
         {/* Contenido Principal */}
-        <Box flex={1} p={4} overflow="auto">
+        <Box maxW="container.xl" flex={1} p={4} overflow="auto">
           <Outlet />
         </Box>
       </Flex>

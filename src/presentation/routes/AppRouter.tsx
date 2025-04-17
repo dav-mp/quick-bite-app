@@ -26,12 +26,9 @@ export const AppRouter = () => {
             </ProtectedRoute>
           }
         >
-          {/* Definir las rutas hijas, por ejemplo: */}
-          <Route index element={<ExternalRoutes />} />
-          {/*
-            Alternativamente, si ExternalRoutes ya define rutas internas,
-            podrías simplificar y no volver a definir nuevas <Route> aquí.
-          */}
+          {/* Aquí: en lugar de `Route index element={<ExternalRoutes />}` 
+              usamos `Route path="*" element={<ExternalRoutes />}` */}
+          <Route path="*" element={<ExternalRoutes />} />
         </Route>
 
         {/* Ruta raíz o redirecciones */}
