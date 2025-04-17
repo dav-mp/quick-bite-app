@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import {
   Box,
   Flex,
@@ -36,6 +36,7 @@ import {
   useToken,
 } from "@chakra-ui/react"
 import { AddIcon, ChevronRightIcon, ChevronLeftIcon, LockIcon, InfoIcon, TimeIcon } from "@chakra-ui/icons"
+import { restaurantUseCase } from "../../../../app/infrastructure/DI/RestaurantContainer"
 
 // Restaurant data structure from API
 interface Restaurant {
@@ -55,115 +56,6 @@ interface Restaurant {
     closeShift?: string // closeShift is optional
   }>
 }
-
-// Sample restaurant data with different Shift scenarios
-const restaurants: Restaurant[] = [
-  {
-    // Example 1: No shifts - Restaurant is closed
-    id: "550e8400-e29b-41d4-a716-446655440001",
-    name: "Restaurante Sabor",
-    resId: "RES001",
-    address: "Av. Siempre Viva 742",
-    status: true,
-    updatedAt: "2024-10-22T00:00:00.000Z",
-    createdAt: "2024-10-22T00:00:00.000Z",
-    password: "$2b$10$K2pJ8WKTkoD3a2LjgKoQoe7NmLK7sV/LFhkg87Kp5cmW19Q1vG1oO",
-    image: null,
-    Shift: [], // Empty shift array - restaurant is closed
-  },
-  {
-    // Example 2: Has openShift but no closeShift - Restaurant is open
-    id: "550e8400-e29b-41d4-a716-446655442134",
-    name: "Restaurante La Delicia",
-    resId: "RES002",
-    address: "Av. la rue 231",
-    status: true,
-    updatedAt: "2024-10-25T00:00:00.000Z",
-    createdAt: "2024-10-25T00:00:00.000Z",
-    password: "$2b$10$p2MEOJwI7TeRmbd1o1QC5.dEA18oL55qXAMc1q6pbxuOhBmPw3nAS",
-    image: null,
-    Shift: [
-      {
-        id: "88968ca3-8e29-4a7e-9270-3a5615e4760e",
-        restaurantId: "550e8400-e29b-41d4-a716-446655442134",
-        openShift: "2024-11-05T20:56:34.046Z",
-        // No closeShift - restaurant is open
-      },
-    ],
-  },
-  {
-    // Example 3: Has both openShift and closeShift - Restaurant is closed
-    id: "51b8ba5d-33f0-42fa-86b2-f552b0e70c81",
-    name: "Restaurante Reforma",
-    resId: "RES003",
-    address: "Av. reforma 117",
-    status: true,
-    updatedAt: "2024-11-05T00:00:00.000Z",
-    createdAt: "2024-11-05T00:00:00.000Z",
-    password: "$2b$10$i1eAM1mpC/vEXA/0xdFlheczMB.0cceKUAnDU4.rknYRPwTW9EIZC",
-    image: null,
-    Shift: [
-      {
-        id: "88968ca3-8e29-4a7e-9270-3a5615e4760e",
-        restaurantId: "51b8ba5d-33f0-42fa-86b2-f552b0e70c81",
-        openShift: "2024-11-05T20:56:34.046Z",
-        closeShift: "2024-11-05T20:56:44.488Z", // Has closeShift - restaurant is closed
-      },
-    ],
-  },
-  {
-    // Example 4: Multiple shifts, latest has openShift but no closeShift - Restaurant is open
-    id: "51b8ba5d-33f0-42fa-86b2-f552b0e70c82",
-    name: "Taquería El Rincón",
-    resId: "RES004",
-    address: "Calle Principal 45",
-    status: true,
-    updatedAt: "2024-11-06T00:00:00.000Z",
-    createdAt: "2024-11-06T00:00:00.000Z",
-    password: "$2b$10$i1eAM1mpC/vEXA/0xdFlheczMB.0cceKUAnDU4.rknYRPwTW9EIZC",
-    image: null,
-    Shift: [
-      {
-        id: "88968ca3-8e29-4a7e-9270-3a5615e4760f",
-        restaurantId: "51b8ba5d-33f0-42fa-86b2-f552b0e70c82",
-        openShift: "2024-11-04T08:00:00.000Z",
-        closeShift: "2024-11-04T20:00:00.000Z", // Previous day's shift (closed)
-      },
-      {
-        id: "88968ca3-8e29-4a7e-9270-3a5615e4761g",
-        restaurantId: "51b8ba5d-33f0-42fa-86b2-f552b0e70c82",
-        openShift: "2024-11-05T08:00:00.000Z", // Current shift (open)
-        // No closeShift - restaurant is open
-      },
-    ],
-  },
-  {
-    // Example 5: Multiple shifts, latest has both openShift and closeShift - Restaurant is closed
-    id: "51b8ba5d-33f0-42fa-86b2-f552b0e70c83",
-    name: "Pizzería Napoli",
-    resId: "RES005",
-    address: "Av. Italia 78",
-    status: true,
-    updatedAt: "2024-11-07T00:00:00.000Z",
-    createdAt: "2024-11-07T00:00:00.000Z",
-    password: "$2b$10$i1eAM1mpC/vEXA/0xdFlheczMB.0cceKUAnDU4.rknYRPwTW9EIZC",
-    image: null,
-    Shift: [
-      {
-        id: "88968ca3-8e29-4a7e-9270-3a5615e4760h",
-        restaurantId: "51b8ba5d-33f0-42fa-86b2-f552b0e70c83",
-        openShift: "2024-11-04T10:00:00.000Z",
-        closeShift: "2024-11-04T22:00:00.000Z", // Previous shift (closed)
-      },
-      {
-        id: "88968ca3-8e29-4a7e-9270-3a5615e4761i",
-        restaurantId: "51b8ba5d-33f0-42fa-86b2-f552b0e70c83",
-        openShift: "2024-11-05T10:00:00.000Z",
-        closeShift: "2024-11-05T22:00:00.000Z", // Latest shift has closeShift - restaurant is closed
-      },
-    ],
-  },
-]
 
 // Mock data for products
 const products = [
@@ -228,6 +120,7 @@ export default function StoreShowcase() {
   const [selectedStore, setSelectedStore] = useState<string | null>(null)
   const [showStores, setShowStores] = useState(true)
   const [showProducts, setShowProducts] = useState(false)
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const { isOpen, onOpen, onClose } = useDisclosure()
   const storesRef = useRef<HTMLDivElement>(null)
   const productsRef = useRef<HTMLDivElement>(null)
@@ -243,6 +136,17 @@ export default function StoreShowcase() {
   const mutedTextColor = useColorModeValue("gray.600", "gray.400")
   const closedBg = useColorModeValue("gray.100", "gray.700")
   const closedTextColor = useColorModeValue("gray.500", "gray.400")
+
+
+  useEffect(() => {
+    getRestaurantsOpen()
+  }, [])
+  
+  const getRestaurantsOpen = async () => {
+    const resp = await restaurantUseCase.getRestaurantsWithShifts()
+    setRestaurants(resp)
+  }
+
 
   // Check if a restaurant is open based on its Shift array
   const isRestaurantOpen = (restaurant: Restaurant): boolean => {
@@ -289,14 +193,14 @@ export default function StoreShowcase() {
   const selectedStoreData = restaurants.find((store) => store.id === selectedStore)
 
   // Function to format date to a readable format
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
-  }
+  // const formatDate = (dateString: string) => {
+  //   const date = new Date(dateString)
+  //   return date.toLocaleDateString("en-US", {
+  //     year: "numeric",
+  //     month: "short",
+  //     day: "numeric",
+  //   })
+  // }
 
   // Function to get shift status text
   const getShiftStatusText = (restaurant: Restaurant): string => {

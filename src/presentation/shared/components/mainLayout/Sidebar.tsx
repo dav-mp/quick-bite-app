@@ -117,13 +117,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const sidebarItems = role === UserType.RESTAURANT ? adminItems : userItems
 
   // Get theme colors
-  const [teal500, purple500, red400] = useToken("colors", ["teal.500", "purple.500", "red.400"])
+  const [teal500, purple500] = useToken("colors", ["teal.500", "purple.500", "red.400"])
 
   // Configuración de colores
   const bgColor = useColorModeValue("white", "gray.800")
   const borderColor = useColorModeValue("gray.200", "gray.700")
   const gradientStart = useColorModeValue("teal.50", "gray.700")
-  const gradientEnd = useColorModeValue("purple.50", "gray.900")
   const itemHoverBg = useColorModeValue("teal.50", "gray.700")
   const itemHoverColor = useColorModeValue("teal.600", "teal.200")
   const itemActiveBg = useColorModeValue("purple.50", "purple.900")
