@@ -8,11 +8,11 @@ import { Product } from "../../domain/models/product/Product";
 export class ProductRepository implements IProductRepository {
 
   /**
-   * Llama a POST /products/getAll
+   * Llama a POST /api/products/getAll
    */
   async getAllProducts(): Promise<Product[]> {
     try {
-      const resp = await axiosInstance.post("/products/getAll");
+      const resp = await axiosInstance.post("/api/product/getAll");
       return productListAdapter(resp.data);
     } catch (error: any) {
       throw new Error(error.response?.data?.message || error.message);
@@ -20,11 +20,13 @@ export class ProductRepository implements IProductRepository {
   }
 
   /**
-   * Llama a POST /products/getProductsActive
+   * Llama a POST /api/products/getProductsActive
    */
   async getProductsActive(): Promise<Product[]> {
     try {
-      const resp = await axiosInstance.post("/products/getProductsActive");
+      const resp = await axiosInstance.post("/api/product/getProductsActive");
+      console.log(resp);
+      
       return productListAdapter(resp.data);
     } catch (error: any) {
       throw new Error(error.response?.data?.message || error.message);
