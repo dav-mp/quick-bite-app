@@ -38,6 +38,10 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
+  List,
+  ListItem,
+  ListIcon,
+  Tooltip,
 } from "@chakra-ui/react"
 import {
   AddIcon,
@@ -47,12 +51,17 @@ import {
   InfoIcon,
   TimeIcon,
   ChevronDownIcon,
+  CheckCircleIcon,
+  StarIcon,
+  PlusSquareIcon,
 } from "@chakra-ui/icons"
 import { restaurantUseCase } from "../../../../app/infrastructure/DI/RestaurantContainer"
 import { productUseCase } from "../../../../app/infrastructure/DI/ProductContainer"
 import { categoryUseCase } from "../../../../app/infrastructure/DI/CategoryContainer"
+import { kitUseCase } from "../../../../app/infrastructure/DI/KitContainer" // Assuming this exists
 import { Restaurant } from "../../../../app/domain/models/restaurant/Restaurant"
 import { Product, ProductPrice } from "../../../../app/domain/models/product/Product"
+import { Kit } from "../../../../app/domain/models/kit/Kit"
 import { Category } from "../../../../app/domain/models/category/Category"
 
 
@@ -64,19 +73,29 @@ const DEFAULT_RESTAURANT_IMAGE =
 const DEFAULT_PRODUCT_IMAGE =
   "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60"
 
+// Default kit image
+const DEFAULT_KIT_IMAGE =
+  "https://images.unsplash.com/photo-1576866209830-589e1bfbaa4d?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60"
+
+// Tab types
+type TabType = "products" | "kits"
+
 export default function StoreShowcase() {
   const [selectedStore, setSelectedStore] = useState<string | null>(null)
   const [showStores, setShowStores] = useState(true)
   const [showProducts, setShowProducts] = useState(false)
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [kits, setKits] = useState<Kit[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedPriceOptions, setSelectedPriceOptions] = useState<Record<string, string>>({})
+  const [activeTab, setActiveTab] = useState<TabType>("products")
   const [loading, setLoading] = useState({
     restaurants: true,
     products: false,
     categories: false,
+    kits: false,
   })
   const { isOpen, onOpen, onClose } = useDisclosure()
   const storesRef = useRef<HTMLDivElement>(null)
@@ -93,16 +112,19 @@ export default function StoreShowcase() {
   const mutedTextColor = useColorModeValue("gray.600", "gray.400")
   const closedBg = useColorModeValue("gray.100", "gray.700")
   const closedTextColor = useColorModeValue("gray.500", "gray.400")
+  const kitBg = useColorModeValue("purple.50", "purple.900")
+  const kitAccentColor = useColorModeValue("purple.500", "purple.300")
 
   // Fetch restaurants on component mount
   useEffect(() => {
     getRestaurantsOpen()
   }, [])
 
-  // Fetch products and categories when a restaurant is selected
+  // Fetch products, categories, and kits when a restaurant is selected
   useEffect(() => {
     if (selectedStore) {
       getProductsAndCategories()
+      getKits()
     }
   }, [selectedStore])
 
@@ -147,6 +169,42 @@ export default function StoreShowcase() {
       console.error("Error fetching products or categories:", error)
     } finally {
       setLoading((prev) => ({ ...prev, products: false, categories: false }))
+    }
+  }
+
+  const getKits = async () => {
+    setLoading((prev) => ({ ...prev, kits: true }))
+    try {
+      // Assuming there's a method to fetch kits by restaurant ID
+      // If not, you might need to adjust this based on your API
+      const kitsResp = await kitUseCase.getAllKitsWithProducts()
+
+      // Enhance kits with product details for display
+      const enhancedKits = await Promise.all(
+        kitsResp.map(async (kit) => {
+          const enhancedProductKit = await Promise.all(
+            kit.ProductKit.map(async (kitProduct) => {
+              // Find the product details from the products we already fetched
+              const productDetails = products.find((p) => p.id === kitProduct.productId)
+              return {
+                ...kitProduct,
+                product: productDetails,
+              }
+            }),
+          )
+
+          return {
+            ...kit,
+            ProductKit: enhancedProductKit,
+          }
+        }),
+      )
+
+      setKits(enhancedKits)
+    } catch (error) {
+      console.error("Error fetching kits:", error)
+    } finally {
+      setLoading((prev) => ({ ...prev, kits: false }))
     }
   }
 
@@ -260,6 +318,14 @@ export default function StoreShowcase() {
     return product.productPrices[0].price
   }
 
+  // Get kit price (first price in the array)
+  const getKitPrice = (kit: Kit): number | undefined => {
+    if (!kit.KitPrice || kit.KitPrice.length === 0) {
+      return undefined
+    }
+    return kit.KitPrice[0].price
+  }
+
   // Handle price option selection
   const handlePriceSelect = (productId: string, priceId: string) => {
     setSelectedPriceOptions((prev) => ({
@@ -272,6 +338,17 @@ export default function StoreShowcase() {
   const getPriceOptionLabel = (_price: ProductPrice, index: number): string => {
     const sizeOptions = ["Small", "Medium", "Large", "Extra Large"]
     return index < sizeOptions.length ? sizeOptions[index] : `Option ${index + 1}`
+  }
+
+  // Get product name by ID
+  const getProductName = (productId: string): string => {
+    const product = products.find((p) => p.id === productId)
+    return product ? product.name : "Unknown Product"
+  }
+
+  // Handle tab change
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab)
   }
 
   return (
@@ -520,262 +597,132 @@ export default function StoreShowcase() {
             </Box>
           </Flex>
 
-          {loading.categories || loading.products ? (
+          {/* Main/Kits Tab Selector */}
+          <Flex mb={6} borderBottom="1px" borderColor={subtleColor}>
+            <Button
+              variant="ghost"
+              colorScheme={activeTab === "products" ? "teal" : "gray"}
+              borderBottom={activeTab === "products" ? "2px solid" : "none"}
+              borderRadius="0"
+              mr={4}
+              onClick={() => handleTabChange("products")}
+              px={6}
+              py={4}
+            >
+              Individual Products
+            </Button>
+            <Button
+              variant="ghost"
+              colorScheme={activeTab === "kits" ? "purple" : "gray"}
+              borderBottom={activeTab === "kits" ? "2px solid" : "none"}
+              borderRadius="0"
+              onClick={() => handleTabChange("kits")}
+              px={6}
+              py={4}
+            >
+              Meal Kits & Combos
+            </Button>
+          </Flex>
+
+          {loading.categories || loading.products || loading.kits ? (
             <Center py={10}>
               <Spinner size="xl" color={accentColor} thickness="4px" />
             </Center>
           ) : (
             <>
-              {/* Category Tabs */}
-              <Tabs
-                variant="soft-rounded"
-                colorScheme="teal"
-                isLazy
-                onChange={(index) => {
-                  if (categories[index]) {
-                    setSelectedCategory(categories[index].id)
-                  }
-                }}
-              >
-                <TabList
-                  mb={6}
-                  overflowX="auto"
-                  css={{
-                    scrollbarWidth: "none",
-                    "&::-webkit-scrollbar": {
-                      display: "none",
-                    },
-                  }}
-                >
-                  {categories.map((category) => (
-                    <Tab key={category.id} _selected={{ color: "white", bg: accentColor }} whiteSpace="nowrap">
-                      {category.name}
-                    </Tab>
-                  ))}
-                </TabList>
+              {/* Products Tab Content */}
+              {activeTab === "products" && (
+                <Box>
+                  {/* Category Tabs */}
+                  <Tabs
+                    variant="soft-rounded"
+                    colorScheme="teal"
+                    isLazy
+                    onChange={(index) => {
+                      if (categories[index]) {
+                        setSelectedCategory(categories[index].id)
+                      }
+                    }}
+                  >
+                    <TabList
+                      mb={6}
+                      overflowX="auto"
+                      css={{
+                        scrollbarWidth: "none",
+                        "&::-webkit-scrollbar": {
+                          display: "none",
+                        },
+                      }}
+                    >
+                      {categories.map((category) => (
+                        <Tab key={category.id} _selected={{ color: "white", bg: accentColor }} whiteSpace="nowrap">
+                          {category.name}
+                        </Tab>
+                      ))}
+                    </TabList>
 
-                <TabPanels>
-                  {categories.map((category) => (
-                    <TabPanel key={category.id} px={0}>
-                      <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={6}>
-                        {getFilteredProducts().map((product) => (
-                          <Card
-                            key={product.id}
-                            overflow="hidden"
-                            variant="outline"
-                            transition="all 0.3s"
-                            _hover={{
-                              transform: "translateY(-5px)",
-                              shadow: "lg",
-                              borderColor: accentColor,
-                            }}
-                          >
-                            <Box position="relative">
-                              <Image
-                                src={product.image || DEFAULT_PRODUCT_IMAGE}
-                                alt={product.name}
-                                height="180px"
-                                width="100%"
-                                objectFit="cover"
-                                fallbackSrc="/colorful-fruit-display.png"
-                              />
-                              {isProductPopular(product.id) && (
-                                <Badge
-                                  position="absolute"
-                                  top={2}
-                                  right={2}
-                                  colorScheme="red"
-                                  variant="solid"
-                                  borderRadius="full"
-                                  px={3}
-                                >
-                                  Popular
-                                </Badge>
-                              )}
-                            </Box>
-
-                            <CardBody>
-                              <Stack spacing={3}>
-                                <Heading size="md">{product.name}</Heading>
-                                <Text color={mutedTextColor} noOfLines={2}>
-                                  {product.description}
-                                </Text>
-                                <Tag width="fit-content" colorScheme="gray" borderRadius="full">
-                                  {getCategoryName(product.categoryId)}
-                                </Tag>
-                              </Stack>
-                            </CardBody>
-
-                            <CardFooter
-                              justify="space-between"
-                              alignItems="center"
-                              borderTopWidth="1px"
-                              borderColor={subtleColor}
-                              py={3}
-                            >
-                              {product.productPrices && product.productPrices.length > 0 ? (
-                                <Flex direction="column">
-                                  <Text fontWeight="bold" fontSize="xl" color={textColor}>
-                                    ${getSelectedPrice(product)?.toFixed(2)}
-                                  </Text>
-
-                                  {product.productPrices.length > 1 && (
-                                    <Menu>
-                                      <MenuButton
-                                        as={Button}
-                                        size="xs"
-                                        variant="outline"
-                                        mt={1}
-                                        rightIcon={<ChevronDownIcon />}
-                                      >
-                                        {product.productPrices.findIndex(
-                                          (p) => p.id === selectedPriceOptions[product.id],
-                                        ) !== -1
-                                          ? getPriceOptionLabel(
-                                              product.productPrices.find(
-                                                (p) => p.id === selectedPriceOptions[product.id],
-                                              )!,
-                                              product.productPrices.findIndex(
-                                                (p) => p.id === selectedPriceOptions[product.id],
-                                              ),
-                                            )
-                                          : "Select Size"}
-                                      </MenuButton>
-                                      <MenuList>
-                                        {product.productPrices.map((price, index) => (
-                                          <MenuItem
-                                            key={price.id}
-                                            onClick={() => handlePriceSelect(product.id, price.id)}
-                                          >
-                                            {getPriceOptionLabel(price, index)} - ${price.price.toFixed(2)}
-                                          </MenuItem>
-                                        ))}
-                                      </MenuList>
-                                    </Menu>
-                                  )}
-                                </Flex>
-                              ) : (
-                                <Text fontWeight="bold" fontSize="xl" color={textColor}>
-                                  Price not available
-                                </Text>
-                              )}
-
-                              <Button
-                                leftIcon={<AddIcon />}
-                                colorScheme="teal"
-                                size="sm"
+                    <TabPanels>
+                      {categories.map((category) => (
+                        <TabPanel key={category.id} px={0}>
+                          <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={6}>
+                            {getFilteredProducts().map((product) => (
+                              <Card
+                                key={product.id}
+                                overflow="hidden"
+                                variant="outline"
+                                transition="all 0.3s"
                                 _hover={{
-                                  transform: "scale(1.05)",
+                                  transform: "translateY(-5px)",
+                                  shadow: "lg",
+                                  borderColor: accentColor,
                                 }}
-                                transition="all 0.2s"
-                                isDisabled={!product.productPrices || product.productPrices.length === 0}
                               >
-                                Add to Cart
-                              </Button>
-                            </CardFooter>
-                          </Card>
-                        ))}
-                      </SimpleGrid>
-                    </TabPanel>
-                  ))}
-                </TabPanels>
-              </Tabs>
-            </>
-          )}
-        </Box>
-      </SlideFade>
+                                <Box position="relative">
+                                  <Image
+                                    src={product.image || DEFAULT_PRODUCT_IMAGE}
+                                    alt={product.name}
+                                    height="180px"
+                                    width="100%"
+                                    objectFit="cover"
+                                    fallbackSrc="/colorful-fruit-display.png"
+                                  />
+                                  {isProductPopular(product.id) && (
+                                    <Badge
+                                      position="absolute"
+                                      top={2}
+                                      right={2}
+                                      colorScheme="red"
+                                      variant="solid"
+                                      borderRadius="full"
+                                      px={3}
+                                    >
+                                      Popular
+                                    </Badge>
+                                  )}
+                                </Box>
 
-      {/* Mobile Drawer for Products */}
-      <Drawer isOpen={isOpen} placement="bottom" onClose={onClose} size="full">
-        <DrawerOverlay />
-        <DrawerContent borderTopRadius="xl">
-          <DrawerCloseButton />
-          <DrawerHeader borderBottomWidth="1px">
-            <Flex align="center">
-              <Button
-                leftIcon={<ChevronLeftIcon />}
-                variant="ghost"
-                mr={4}
-                onClick={() => {
-                  onClose()
-                  setSelectedStore(null)
-                }}
-                size="sm"
-              >
-                Back
-              </Button>
-              {selectedStoreData?.name}
-            </Flex>
-          </DrawerHeader>
-          <DrawerBody p={4}>
-            {loading.categories || loading.products ? (
-              <Center py={10}>
-                <Spinner size="xl" color={accentColor} thickness="4px" />
-              </Center>
-            ) : (
-              <Tabs
-                variant="soft-rounded"
-                colorScheme="teal"
-                isLazy
-                onChange={(index) => {
-                  if (categories[index]) {
-                    setSelectedCategory(categories[index].id)
-                  }
-                }}
-              >
-                <TabList
-                  mb={6}
-                  overflowX="auto"
-                  css={{
-                    scrollbarWidth: "none",
-                    "&::-webkit-scrollbar": {
-                      display: "none",
-                    },
-                  }}
-                >
-                  {categories.map((category) => (
-                    <Tab key={category.id} _selected={{ color: "white", bg: accentColor }} whiteSpace="nowrap">
-                      {category.name}
-                    </Tab>
-                  ))}
-                </TabList>
+                                <CardBody>
+                                  <Stack spacing={3}>
+                                    <Heading size="md">{product.name}</Heading>
+                                    <Text color={mutedTextColor} noOfLines={2}>
+                                      {product.description}
+                                    </Text>
+                                    <Tag width="fit-content" colorScheme="gray" borderRadius="full">
+                                      {getCategoryName(product.categoryId)}
+                                    </Tag>
+                                  </Stack>
+                                </CardBody>
 
-                <TabPanels>
-                  {categories.map((category) => (
-                    <TabPanel key={category.id} px={0}>
-                      <VStack spacing={4} align="stretch">
-                        {getFilteredProducts().map((product) => (
-                          <Card
-                            key={product.id}
-                            direction="row"
-                            overflow="hidden"
-                            variant="outline"
-                            transition="all 0.2s"
-                            _hover={{
-                              shadow: "md",
-                              borderColor: accentColor,
-                            }}
-                          >
-                            <Image
-                              src={product.image || DEFAULT_PRODUCT_IMAGE}
-                              alt={product.name}
-                              width="100px"
-                              height="100px"
-                              objectFit="cover"
-                              fallbackSrc="/colorful-fruit-display.png"
-                            />
-
-                            <Stack flex="1">
-                              <CardBody py={2}>
-                                <Heading size="sm">{product.name}</Heading>
-                                <Text fontSize="sm" color={mutedTextColor} noOfLines={2} my={1}>
-                                  {product.description}
-                                </Text>
-
-                                {product.productPrices && product.productPrices.length > 0 ? (
-                                  <Flex justify="space-between" align="center">
+                                <CardFooter
+                                  justify="space-between"
+                                  alignItems="center"
+                                  borderTopWidth="1px"
+                                  borderColor={subtleColor}
+                                  py={3}
+                                >
+                                  {product.productPrices && product.productPrices.length > 0 ? (
                                     <Flex direction="column">
-                                      <Text fontWeight="bold" color={textColor}>
+                                      <Text fontWeight="bold" fontSize="xl" color={textColor}>
                                         ${getSelectedPrice(product)?.toFixed(2)}
                                       </Text>
 
@@ -814,40 +761,403 @@ export default function StoreShowcase() {
                                         </Menu>
                                       )}
                                     </Flex>
-
-                                    <IconButton
-                                      aria-label="Add to cart"
-                                      icon={<AddIcon />}
-                                      size="sm"
-                                      colorScheme="teal"
-                                      isRound
-                                      isDisabled={!product.productPrices || product.productPrices.length === 0}
-                                    />
-                                  </Flex>
-                                ) : (
-                                  <Flex justify="space-between" align="center">
-                                    <Text fontWeight="bold" color={textColor}>
+                                  ) : (
+                                    <Text fontWeight="bold" fontSize="xl" color={textColor}>
                                       Price not available
                                     </Text>
-                                    <IconButton
-                                      aria-label="Add to cart"
-                                      icon={<AddIcon />}
-                                      size="sm"
-                                      colorScheme="teal"
-                                      isRound
-                                      isDisabled={true}
-                                    />
-                                  </Flex>
-                                )}
-                              </CardBody>
-                            </Stack>
-                          </Card>
-                        ))}
-                      </VStack>
-                    </TabPanel>
-                  ))}
-                </TabPanels>
-              </Tabs>
+                                  )}
+
+                                  <Button
+                                    leftIcon={<AddIcon />}
+                                    colorScheme="teal"
+                                    size="sm"
+                                    _hover={{
+                                      transform: "scale(1.05)",
+                                    }}
+                                    transition="all 0.2s"
+                                    isDisabled={!product.productPrices || product.productPrices.length === 0}
+                                  >
+                                    Add to Cart
+                                  </Button>
+                                </CardFooter>
+                              </Card>
+                            ))}
+                          </SimpleGrid>
+                        </TabPanel>
+                      ))}
+                    </TabPanels>
+                  </Tabs>
+                </Box>
+              )}
+
+              {/* Kits Tab Content */}
+              {activeTab === "kits" && (
+                <Box>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                    {kits.map((kit) => (
+                      <Card
+                        key={kit.id}
+                        overflow="hidden"
+                        variant="outline"
+                        bg={kitBg}
+                        transition="all 0.3s"
+                        _hover={{
+                          transform: "translateY(-5px)",
+                          shadow: "lg",
+                          borderColor: kitAccentColor,
+                        }}
+                      >
+                        <Box position="relative">
+                          <Image
+                            src={kit.image || DEFAULT_KIT_IMAGE}
+                            alt={kit.name}
+                            height="200px"
+                            width="100%"
+                            objectFit="cover"
+                            fallbackSrc="/classic-burger-fries-drink.png"
+                          />
+                          <Badge
+                            position="absolute"
+                            top={2}
+                            right={2}
+                            colorScheme="purple"
+                            variant="solid"
+                            borderRadius="full"
+                            px={3}
+                            zIndex="2"
+                          >
+                            Combo
+                          </Badge>
+                        </Box>
+
+                        <CardBody>
+                          <Stack spacing={3}>
+                            <Heading size="md" color={textColor}>
+                              {kit.name}
+                            </Heading>
+                            <Text color={mutedTextColor} noOfLines={2}>
+                              {kit.description}
+                            </Text>
+
+                            <Box>
+                              <Text fontWeight="medium" mb={2}>
+                                Includes:
+                              </Text>
+                              <List spacing={1}>
+                                {kit.ProductKit.map((kitProduct) => (
+                                  <ListItem key={kitProduct.productId} fontSize="sm">
+                                    <ListIcon as={CheckCircleIcon} color={kitAccentColor} />
+                                    {kitProduct.quantity}x {getProductName(kitProduct.productId)}
+                                  </ListItem>
+                                ))}
+                              </List>
+                            </Box>
+                          </Stack>
+                        </CardBody>
+
+                        <CardFooter
+                          justify="space-between"
+                          alignItems="center"
+                          borderTopWidth="1px"
+                          borderColor={`${kitAccentColor}33`}
+                          py={3}
+                        >
+                          <Flex direction="column">
+                            <Text fontWeight="bold" fontSize="xl" color={textColor}>
+                              ${getKitPrice(kit)?.toFixed(2)}
+                            </Text>
+                            <Badge colorScheme="purple" variant="subtle" mt={1}>
+                              <StarIcon mr={1} boxSize={3} />
+                              Save up to 15%
+                            </Badge>
+                          </Flex>
+
+                          <Button
+                            leftIcon={<PlusSquareIcon />}
+                            colorScheme="purple"
+                            size="sm"
+                            _hover={{
+                              transform: "scale(1.05)",
+                            }}
+                            transition="all 0.2s"
+                          >
+                            Add Kit to Cart
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </SimpleGrid>
+                </Box>
+              )}
+            </>
+          )}
+        </Box>
+      </SlideFade>
+
+      {/* Mobile Drawer for Products */}
+      <Drawer isOpen={isOpen} placement="bottom" onClose={onClose} size="full">
+        <DrawerOverlay />
+        <DrawerContent borderTopRadius="xl">
+          <DrawerCloseButton />
+          <DrawerHeader borderBottomWidth="1px">
+            <Flex align="center">
+              <Button
+                leftIcon={<ChevronLeftIcon />}
+                variant="ghost"
+                mr={4}
+                onClick={() => {
+                  onClose()
+                  setSelectedStore(null)
+                }}
+                size="sm"
+              >
+                Back
+              </Button>
+              {selectedStoreData?.name}
+            </Flex>
+          </DrawerHeader>
+          <DrawerBody p={4}>
+            {/* Mobile Tab Selector */}
+            <Flex mb={4} justify="center">
+              <Button
+                variant="outline"
+                colorScheme={activeTab === "products" ? "teal" : "gray"}
+                mr={2}
+                onClick={() => handleTabChange("products")}
+                size="sm"
+                flex={1}
+              >
+                Products
+              </Button>
+              <Button
+                variant="outline"
+                colorScheme={activeTab === "kits" ? "purple" : "gray"}
+                onClick={() => handleTabChange("kits")}
+                size="sm"
+                flex={1}
+              >
+                Kits & Combos
+              </Button>
+            </Flex>
+
+            {loading.categories || loading.products || loading.kits ? (
+              <Center py={10}>
+                <Spinner size="xl" color={accentColor} thickness="4px" />
+              </Center>
+            ) : (
+              <>
+                {/* Mobile Products Tab Content */}
+                {activeTab === "products" && (
+                  <Tabs
+                    variant="soft-rounded"
+                    colorScheme="teal"
+                    isLazy
+                    onChange={(index) => {
+                      if (categories[index]) {
+                        setSelectedCategory(categories[index].id)
+                      }
+                    }}
+                  >
+                    <TabList
+                      mb={6}
+                      overflowX="auto"
+                      css={{
+                        scrollbarWidth: "none",
+                        "&::-webkit-scrollbar": {
+                          display: "none",
+                        },
+                      }}
+                    >
+                      {categories.map((category) => (
+                        <Tab key={category.id} _selected={{ color: "white", bg: accentColor }} whiteSpace="nowrap">
+                          {category.name}
+                        </Tab>
+                      ))}
+                    </TabList>
+
+                    <TabPanels>
+                      {categories.map((category) => (
+                        <TabPanel key={category.id} px={0}>
+                          <VStack spacing={4} align="stretch">
+                            {getFilteredProducts().map((product) => (
+                              <Card
+                                key={product.id}
+                                direction="row"
+                                overflow="hidden"
+                                variant="outline"
+                                transition="all 0.2s"
+                                _hover={{
+                                  shadow: "md",
+                                  borderColor: accentColor,
+                                }}
+                              >
+                                <Image
+                                  src={product.image || DEFAULT_PRODUCT_IMAGE}
+                                  alt={product.name}
+                                  width="100px"
+                                  height="100px"
+                                  objectFit="cover"
+                                  fallbackSrc="/colorful-fruit-display.png"
+                                />
+
+                                <Stack flex="1">
+                                  <CardBody py={2}>
+                                    <Heading size="sm">{product.name}</Heading>
+                                    <Text fontSize="sm" color={mutedTextColor} noOfLines={2} my={1}>
+                                      {product.description}
+                                    </Text>
+
+                                    {product.productPrices && product.productPrices.length > 0 ? (
+                                      <Flex justify="space-between" align="center">
+                                        <Flex direction="column">
+                                          <Text fontWeight="bold" color={textColor}>
+                                            ${getSelectedPrice(product)?.toFixed(2)}
+                                          </Text>
+
+                                          {product.productPrices.length > 1 && (
+                                            <Menu>
+                                              <MenuButton
+                                                as={Button}
+                                                size="xs"
+                                                variant="outline"
+                                                mt={1}
+                                                rightIcon={<ChevronDownIcon />}
+                                              >
+                                                {product.productPrices.findIndex(
+                                                  (p) => p.id === selectedPriceOptions[product.id],
+                                                ) !== -1
+                                                  ? getPriceOptionLabel(
+                                                      product.productPrices.find(
+                                                        (p) => p.id === selectedPriceOptions[product.id],
+                                                      )!,
+                                                      product.productPrices.findIndex(
+                                                        (p) => p.id === selectedPriceOptions[product.id],
+                                                      ),
+                                                    )
+                                                  : "Select Size"}
+                                              </MenuButton>
+                                              <MenuList>
+                                                {product.productPrices.map((price, index) => (
+                                                  <MenuItem
+                                                    key={price.id}
+                                                    onClick={() => handlePriceSelect(product.id, price.id)}
+                                                  >
+                                                    {getPriceOptionLabel(price, index)} - ${price.price.toFixed(2)}
+                                                  </MenuItem>
+                                                ))}
+                                              </MenuList>
+                                            </Menu>
+                                          )}
+                                        </Flex>
+
+                                        <IconButton
+                                          aria-label="Add to cart"
+                                          icon={<AddIcon />}
+                                          size="sm"
+                                          colorScheme="teal"
+                                          isRound
+                                          isDisabled={!product.productPrices || product.productPrices.length === 0}
+                                        />
+                                      </Flex>
+                                    ) : (
+                                      <Flex justify="space-between" align="center">
+                                        <Text fontWeight="bold" color={textColor}>
+                                          Price not available
+                                        </Text>
+                                        <IconButton
+                                          aria-label="Add to cart"
+                                          icon={<AddIcon />}
+                                          size="sm"
+                                          colorScheme="teal"
+                                          isRound
+                                          isDisabled={true}
+                                        />
+                                      </Flex>
+                                    )}
+                                  </CardBody>
+                                </Stack>
+                              </Card>
+                            ))}
+                          </VStack>
+                        </TabPanel>
+                      ))}
+                    </TabPanels>
+                  </Tabs>
+                )}
+
+                {/* Mobile Kits Tab Content */}
+                {activeTab === "kits" && (
+                  <VStack spacing={4} align="stretch">
+                    {kits.map((kit) => (
+                      <Card
+                        key={kit.id}
+                        overflow="hidden"
+                        variant="outline"
+                        bg={kitBg}
+                        transition="all 0.2s"
+                        _hover={{
+                          shadow: "md",
+                          borderColor: kitAccentColor,
+                        }}
+                      >
+                        <Box position="relative">
+                          <Image
+                            src={kit.image || DEFAULT_KIT_IMAGE}
+                            alt={kit.name}
+                            height="120px"
+                            width="100%"
+                            objectFit="cover"
+                            fallbackSrc="/classic-burger-fries-drink.png"
+                          />
+                          <Badge
+                            position="absolute"
+                            top={2}
+                            right={2}
+                            colorScheme="purple"
+                            variant="solid"
+                            borderRadius="full"
+                            px={3}
+                            zIndex="2"
+                          >
+                            Combo
+                          </Badge>
+                        </Box>
+
+                        <CardBody py={3}>
+                          <Heading size="sm" mb={1}>
+                            {kit.name}
+                          </Heading>
+                          <Text fontSize="xs" color={mutedTextColor} noOfLines={2} mb={2}>
+                            {kit.description}
+                          </Text>
+
+                          <Flex justify="space-between" align="center">
+                            <Flex direction="column">
+                              <Text fontWeight="bold" color={textColor}>
+                                ${getKitPrice(kit)?.toFixed(2)}
+                              </Text>
+                              <Badge colorScheme="purple" variant="subtle" mt={1} fontSize="2xs">
+                                <StarIcon mr={1} boxSize={2} />
+                                Save up to 15%
+                              </Badge>
+                            </Flex>
+
+                            <Tooltip
+                              label={kit.ProductKit.map((kp) => `${kp.quantity}x ${getProductName(kp.productId)}`).join(
+                                ", ",
+                              )}
+                            >
+                              <Button leftIcon={<PlusSquareIcon />} colorScheme="purple" size="sm" variant="outline">
+                                Add Kit
+                              </Button>
+                            </Tooltip>
+                          </Flex>
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </VStack>
+                )}
+              </>
             )}
           </DrawerBody>
         </DrawerContent>
