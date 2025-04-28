@@ -19,62 +19,82 @@ export interface CartItem {
 }
 
 /**
- * Estado inicial para el slice del carrito.
+ * Estado del carrito, incluyendo el `restaurantId` seleccionado.
  */
 interface CartState {
   items: CartItem[];
+  restaurantId: string | null;
 }
 
 /**
- * Función auxiliar para cargar el carrito desde localStorage.
+ * Estructura a guardar en localStorage para persistir todo el estado del carrito.
  */
-function loadCartFromLocalStorage(): CartItem[] {
+interface CartPersistedData {
+  items: CartItem[];
+  restaurantId: string | null;
+}
+
+/**
+ * Función auxiliar para cargar el estado completo del carrito (items + restaurantId) desde localStorage.
+ */
+function loadCartStateFromLocalStorage(): CartState {
   try {
-    const stored = localStorage.getItem("cartItems");
+    const stored = localStorage.getItem("cartState");
     if (stored) {
-      return JSON.parse(stored);
+      const parsed: CartPersistedData = JSON.parse(stored);
+      return {
+        items: parsed.items || [],
+        restaurantId: parsed.restaurantId || null,
+      };
     }
   } catch (err) {
     console.error("Error loading cart from localStorage", err);
   }
-  return [];
+  return { items: [], restaurantId: null };
 }
 
 /**
- * Función auxiliar para guardar el carrito en localStorage.
+ * Guarda el estado completo del carrito (items + restaurantId) en localStorage.
  */
-function saveCartToLocalStorage(items: CartItem[]) {
+function saveCartStateToLocalStorage(state: CartState) {
   try {
-    localStorage.setItem("cartItems", JSON.stringify(items));
+    const dataToStore: CartPersistedData = {
+      items: state.items,
+      restaurantId: state.restaurantId,
+    };
+    localStorage.setItem("cartState", JSON.stringify(dataToStore));
   } catch (err) {
     console.error("Error saving cart to localStorage", err);
   }
 }
 
-const initialState: CartState = {
-  items: loadCartFromLocalStorage(),
-};
+const initialState: CartState = loadCartStateFromLocalStorage();
 
 const cartSlice = createSlice({
   name: "cart",
   initialState,
   reducers: {
     /**
+     * Fija el ID del restaurante al cual pertenecen los productos del carrito.
+     */
+    setRestaurantId: (state, action: PayloadAction<string | null>) => {
+      state.restaurantId = action.payload;
+      saveCartStateToLocalStorage(state);
+    },
+
+    /**
      * Agrega un producto individual al carrito.
-     * Podemos fusionar "agregar producto" y "agregar kit" en una sola acción,
-     * pero aquí lo separamos para mayor claridad.
      */
     addProductToCart: (
       state,
       action: PayloadAction<{
         product: Product;
         quantity?: number;
-        selectedPriceId?: string; // por si el usuario elige un precio específico
+        selectedPriceId?: string;
       }>
     ) => {
       const { product, quantity = 1, selectedPriceId } = action.payload;
 
-      // Ver si ya existe este mismo producto + variant en el carrito
       const existingItem = state.items.find(
         (item) =>
           item.type === "product" &&
@@ -82,12 +102,10 @@ const cartSlice = createSlice({
           item.selectedPriceId === selectedPriceId
       );
       if (existingItem) {
-        // Actualizamos la cantidad
         existingItem.quantity += quantity;
       } else {
-        // Creamos un nuevo item en el carrito
         state.items.push({
-          id: crypto.randomUUID(), // o usa alguna librería como uuid
+          id: crypto.randomUUID(),
           type: "product",
           product,
           quantity,
@@ -95,7 +113,7 @@ const cartSlice = createSlice({
         });
       }
 
-      saveCartToLocalStorage(state.items);
+      saveCartStateToLocalStorage(state);
     },
 
     /**
@@ -110,7 +128,6 @@ const cartSlice = createSlice({
     ) => {
       const { kit, quantity = 1 } = action.payload;
 
-      // Ver si ya existe este mismo kit en el carrito
       const existingItem = state.items.find(
         (item) => item.type === "kit" && item.kit?.id === kit.id
       );
@@ -125,7 +142,7 @@ const cartSlice = createSlice({
         });
       }
 
-      saveCartToLocalStorage(state.items);
+      saveCartStateToLocalStorage(state);
     },
 
     /**
@@ -134,15 +151,15 @@ const cartSlice = createSlice({
     removeItemFromCart: (state, action: PayloadAction<string>) => {
       const newItems = state.items.filter((item) => item.id !== action.payload);
       state.items = newItems;
-      saveCartToLocalStorage(state.items);
+      saveCartStateToLocalStorage(state);
     },
 
     /**
-     * Vaciar todo el carrito
+     * Vaciar todo el carrito (ej. al cambiar de restaurante).
      */
     clearCart: (state) => {
       state.items = [];
-      saveCartToLocalStorage(state.items);
+      saveCartStateToLocalStorage(state);
     },
 
     /**
@@ -157,12 +174,13 @@ const cartSlice = createSlice({
       if (itemToUpdate) {
         itemToUpdate.quantity = quantity;
       }
-      saveCartToLocalStorage(state.items);
+      saveCartStateToLocalStorage(state);
     },
   },
 });
 
 export const {
+  setRestaurantId,
   addProductToCart,
   addKitToCart,
   removeItemFromCart,
@@ -174,5 +192,10 @@ export const {
  * Selector para obtener los items del carrito.
  */
 export const selectCartItems = (state: RootState) => state.cart.items;
+
+/**
+ * Selector para obtener el ID del restaurante en el carrito.
+ */
+export const selectRestaurantId = (state: RootState) => state.cart.restaurantId;
 
 export default cartSlice.reducer;

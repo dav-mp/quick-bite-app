@@ -4,29 +4,31 @@
 
 import { TransformedOrder } from "../../domain/models/oreder/Order";
 
-
 /**
- * Ejemplo de adaptador para transformar la respuesta en caso
+ * Adaptador para transformar la respuesta en caso
  * de que el backend la mande en un formato distinto al que
- * el frontend desea. Si tu backend ya manda un JSON
- * idéntico a `TransformedOrder`, podrías no necesitar esto.
+ * el frontend desea (TransformedOrder).
  */
 export function orderAdapter(rawData: any): TransformedOrder {
+  console.log(rawData);
+  
   return {
-    id: rawData.id,
-    customerId: rawData.customerId,
-    restaurantId: rawData.restaurantId,
-    orderDate: rawData.orderDate,
-    totalPrice: rawData.totalPrice,
-    status: rawData.status,
-    createdAt: rawData.createdAt,
-    updatedAt: rawData.updatedAt,
+    id: rawData?.id ?? "",
+    customerId: rawData?.customerId ?? "",
+    restaurantId: rawData?.restaurantId ?? "",
+    // OJO: orderDate en el backend puede ser string; ajusta según necesites
+    orderDate: rawData?.orderDate ?? "",
+    totalPrice: rawData?.totalPrice ?? 0,
+    status: rawData?.status ?? "created",
+    createdAt: rawData?.createdAt ?? "",
+    updatedAt: rawData?.updatedAt ?? "",
+    // Si no existe OrderDetail, usa un objeto vacío y luego fallback a []
     OrderDetail: {
-      singleProducts: rawData.OrderDetail.singleProducts || [],
-      kits: rawData.OrderDetail.kits || []
+      singleProducts: rawData?.OrderDetail?.singleProducts ?? [],
+      kits: rawData?.OrderDetail?.kits ?? []
     },
-    Customer: rawData.Customer || undefined,
-    Restaurant: rawData.Restaurant || undefined,
+    Customer: rawData?.Customer || undefined,
+    Restaurant: rawData?.Restaurant || undefined,
   };
 }
 

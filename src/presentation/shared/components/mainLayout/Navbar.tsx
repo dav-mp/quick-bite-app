@@ -12,25 +12,26 @@ import {
   useColorMode,
 } from "@chakra-ui/react"
 import { HamburgerIcon, BellIcon, SearchIcon, ExternalLinkIcon, MoonIcon, SunIcon } from "@chakra-ui/icons"
+import CartIcon from "../cart/Cart"
 import { removeUserCookies } from "../../../../app/infrastructure/service/CookiesService"
-import useRedirect from "../../hooks/useRedirect"
+import { redirect } from "react-router-dom"
 
 interface NavbarProps {
   onMobileMenuOpen: () => void
 }
 
+
+const logout = () => {
+  removeUserCookies()
+  setTimeout(() => {
+      redirect("/login-external")
+  }, 1000);
+}
+
 export default function Navbar({ onMobileMenuOpen }: NavbarProps) {
-  const redirect = useRedirect();
   const { colorMode, toggleColorMode } = useColorMode()
   const bgColor = useColorModeValue("white", "gray.800")
   const borderColor = useColorModeValue("gray.200", "gray.700")
-
-  const logout = () => {
-    removeUserCookies()
-    setTimeout(() => {
-        redirect("/login-external")
-    }, 1000);
-  }
 
   return (
     <Flex
@@ -70,6 +71,7 @@ export default function Navbar({ onMobileMenuOpen }: NavbarProps) {
         />
         <IconButton aria-label="Search" icon={<SearchIcon />} variant="ghost" size="md" />
         <IconButton aria-label="Notifications" icon={<BellIcon />} variant="ghost" size="md" />
+        <CartIcon />
         <Menu>
           <MenuButton
             as={IconButton}
@@ -78,7 +80,7 @@ export default function Navbar({ onMobileMenuOpen }: NavbarProps) {
             variant="ghost"
           />
           <MenuList>
-            <MenuItem icon={<ExternalLinkIcon />} color={"red"} onClick={logout}>Logout</MenuItem>
+            <MenuItem icon={<ExternalLinkIcon />} onClick={logout} color={"red"}>Logout</MenuItem>
           </MenuList>
         </Menu>
       </HStack>

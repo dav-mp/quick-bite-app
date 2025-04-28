@@ -86,7 +86,6 @@ export default function CartIcon() {
   const hoverBgColor = useColorModeValue("gray.50", "gray.700")
   const accentColor = useColorModeValue("teal.500", "teal.300")
   const subtleColor = useColorModeValue("gray.100", "gray.700")
-  const textColor = useColorModeValue("gray.800", "white")
   const mutedTextColor = useColorModeValue("gray.600", "gray.400")
   const badgeBgColor = useColorModeValue("red.500", "red.400")
   const gradientStart = useColorModeValue("teal.50", "gray.700")

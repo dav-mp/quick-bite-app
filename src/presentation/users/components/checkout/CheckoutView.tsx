@@ -1,4 +1,4 @@
-// File: src/presentation/users/pages/checkout/CheckoutView.tsx
+// File: src/presentation/users/components/checkout/CheckoutView.tsx
 import React, { useState } from "react"
 import {
   Box,
@@ -21,15 +21,14 @@ import {
 
 // Importamos las utilidades del carrito
 import { useAppSelector, useAppDispatch } from "../../../../app/infrastructure/store/Hooks"
-import { selectCartItems, clearCart } from "../../../../app/infrastructure/store/CartSlice"
+import { selectCartItems, clearCart, selectRestaurantId } from "../../../../app/infrastructure/store/CartSlice"
 
 // Importamos la función buildCreateOrderRequest y el caso de uso
 import { buildCreateOrderRequest } from "../../../../app/infrastructure/service/OrderUtils"
 import { orderUseCase } from "../../../../app/infrastructure/DI/OrderContainer"
 
-// Importamos para leer cookies (por ejemplo, customerId, restaurantId...)
-import { getDataCookies } from "../../../../app/infrastructure/service/CookiesService"
-import { DataCookies } from "../../../../app/domain/models/cookies/DataCookies"
+// Importamos para leer cookies (por ejemplo, customerId)
+import { getJWTDataDecoded } from "../../../../app/infrastructure/service/JWTDecoded"
 
 // Imágenes por defecto (solo ejemplo)
 const DEFAULT_PRODUCT_IMAGE =
@@ -38,8 +37,9 @@ const DEFAULT_KIT_IMAGE =
   "https://images.unsplash.com/photo-1576866209830-589e1bfbaa4d?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60"
 
 const CheckoutView: React.FC = () => {
-  // Accedemos al carrito
+  // Accedemos al carrito y al restaurantId
   const cartItems = useAppSelector(selectCartItems)
+  const cartRestaurantId = useAppSelector(selectRestaurantId) // <-- el ID real del restaurante
   const dispatch = useAppDispatch()
   const toast = useToast()
 
@@ -47,11 +47,6 @@ const CheckoutView: React.FC = () => {
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  // Obtenemos (por ejemplo) el customerId desde cookies
-  // Ajusta según como guardes el ID real del usuario en tu app
-  const customerId = getDataCookies(DataCookies.EMAIL) || "" // O un ID real de tu backend
-  // Igualmente, ajusta el restaurantId (puede venir de la selección previa o cookies)
-  const restaurantId = "1234-RESTAURANT-MOCK-ID" // O un ID real
 
   // Estilos
   const borderColor = useColorModeValue("gray.200", "gray.600")
@@ -77,10 +72,23 @@ const CheckoutView: React.FC = () => {
       setLoadingOrder(true)
       setErrorMsg(null)
 
+      const customer = getJWTDataDecoded<Record <string, any>>()
+
+      // Validación básica: si no hay restaurante asignado:
+      if (!cartRestaurantId) {
+        throw new Error("No hay restaurante seleccionado. Selecciona un restaurante antes de crear la orden.");
+      }
+
+      console.log(cartRestaurantId);
+      console.log(customer.sub);
+      
+
       // 1) Construimos el request con la utilidad
-      const orderRequest = buildCreateOrderRequest(cartItems, customerId, restaurantId)
+      const orderRequest = buildCreateOrderRequest(cartItems, customer.sub, cartRestaurantId)
       // 2) Llamamos al caso de uso
       const newOrder = await orderUseCase.createOrder(orderRequest)
+      console.log(newOrder);
+      
       // 3) Si todo ok, mostrar toast y vaciar carrito (o redirigir)
       toast({
         title: "Orden creada",
@@ -93,7 +101,6 @@ const CheckoutView: React.FC = () => {
       dispatch(clearCart())
 
       // Aquí puedes redirigir a "/user/orders" o donde gustes...
-      // Por ejemplo: navigate("/user/orders")
 
     } catch (error: any) {
       console.error(error)

@@ -19,7 +19,7 @@ function calculateItemPrice(cartItem: CartItem): number {
     const price = priceObj?.price ?? 0;
     return price * cartItem.quantity;
   } else if (cartItem.type === "kit" && cartItem.kit) {
-    // Supongamos que un kit solo tiene un KitPrice
+    // Supongamos que un kit solo tiene un KitPrice principal
     const priceKit = cartItem.kit.KitPrice[0]?.price ?? 0;
     return priceKit * cartItem.quantity;
   }
@@ -28,23 +28,37 @@ function calculateItemPrice(cartItem: CartItem): number {
 
 /**
  * Construye un array de detalles de la orden. 
- * Para productos: fill `productId, quantity, productPriceEspecialId`.
- * Para kits: fill `kitId, quantity`.
+ * Para productos: agregamos un objeto con `productId, quantity, productPriceEspecialId`.
+ * 
+ * Para kits: **IMPORTANTÍSIMO**: el backend exige siempre `productId`, 
+ * así que necesitamos desglosar el kit en varios objetos, 
+ * uno por cada producto del kit, todos con el mismo `kitId`.
+ * 
+ * De esta forma cumplimos con el zod schema que obliga `productId` en cada línea de detalle.
  */
 function buildOrderDetails(cartItems: CartItem[]): CreateOrderDetailRequest[] {
-  let details: CreateOrderDetailRequest[] = [];
+  const details: CreateOrderDetailRequest[] = [];
 
   for (const item of cartItems) {
     if (item.type === "product" && item.product) {
+      // Un solo objeto con productId + (opcional) productPriceEspecialId
       details.push({
         productId: item.product.id,
         quantity: item.quantity,
         productPriceEspecialId: item.selectedPriceId, // si aplica
       });
+
     } else if (item.type === "kit" && item.kit) {
-      details.push({
-        kitId: item.kit.id,
-        quantity: item.quantity,
+      // El backend requiere "productId" siempre, así que generamos
+      // múltiples líneas, una por cada producto integrante del kit:
+      item.kit.ProductKit.forEach((kitProduct) => {
+        details.push({
+          // Asignamos productId y kitId
+          productId: kitProduct.productId,
+          kitId: item.kit?.id,
+          // La cantidad es la del kit * la cantidad interna de cada producto 
+          quantity: kitProduct.quantity * item.quantity,
+        });
       });
     }
   }
@@ -79,7 +93,10 @@ export function buildCreateOrderRequest(
   const request: CreateOrderRequest = {
     customerId,
     restaurantId,
-    orderDate: Date.now(), // por ejemplo
+    // Si tu backend usa `orderDate` en segundos, conviene Date.now()/1000; 
+    // aunque en tu backend convierten con `new Date(orderDate * 1000)`.
+    // Aquí solo enviamos el timestamp entero (segundos).
+    orderDate: Math.floor(Date.now() / 1000), 
     totalPrice,
     orderDetail,
   };

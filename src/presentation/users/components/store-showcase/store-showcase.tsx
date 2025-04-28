@@ -42,6 +42,12 @@ import {
   ListItem,
   ListIcon,
   Tooltip,
+  AlertDialog,
+  AlertDialogOverlay,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogBody,
+  AlertDialogFooter
 } from "@chakra-ui/react"
 import {
   AddIcon,
@@ -66,9 +72,9 @@ import { Product, ProductPrice } from "../../../../app/domain/models/product/Pro
 import { Kit } from "../../../../app/domain/models/kit/Kit"
 import { Category } from "../../../../app/domain/models/category/Category"
 
-// --- Importamos las acciones y el hook de Redux para dispatch ---
-import { useAppDispatch } from "../../../../app/infrastructure/store/Hooks"
-import { addKitToCart, addProductToCart } from "../../../../app/infrastructure/store/CartSlice"
+// --- Importamos las acciones y el hook de Redux para dispatch y select ---
+import { useAppDispatch, useAppSelector } from "../../../../app/infrastructure/store/Hooks"
+import { addKitToCart, addProductToCart, clearCart, setRestaurantId, selectRestaurantId } from "../../../../app/infrastructure/store/CartSlice"
 
 // Default restaurant image
 const DEFAULT_RESTAURANT_IMAGE =
@@ -86,273 +92,287 @@ const DEFAULT_KIT_IMAGE =
 type TabType = "products" | "kits"
 
 export default function StoreShowcase() {
-  const dispatch = useAppDispatch()               // <-- para despachar acciones a Redux
+  const dispatch = useAppDispatch();
 
-  const [selectedStore, setSelectedStore] = useState<string | null>(null)
-  const [showStores, setShowStores] = useState(true)
-  const [showProducts, setShowProducts] = useState(false)
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([])
-  const [products, setProducts] = useState<Product[]>([])
-  const [kits, setKits] = useState<Kit[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [selectedPriceOptions, setSelectedPriceOptions] = useState<Record<string, string>>({})
-  const [activeTab, setActiveTab] = useState<TabType>("products")
+  // Obtenemos el restaurantId actual del carrito
+  const currentCartRestaurantId = useAppSelector(selectRestaurantId);
+
+  const [selectedStore, setSelectedStore] = useState<string | null>(null);
+  const [showStores, setShowStores] = useState(true);
+  const [showProducts, setShowProducts] = useState(false);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [kits, setKits] = useState<Kit[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedPriceOptions, setSelectedPriceOptions] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState<TabType>("products");
   const [loading, setLoading] = useState({
     restaurants: true,
     products: false,
     categories: false,
     kits: false,
-  })
-  const { isOpen, onOpen, onClose } = useDisclosure()
-  const storesRef = useRef<HTMLDivElement>(null)
-  const productsRef = useRef<HTMLDivElement>(null)
+  });
+
+  // Para confirmar cambio de restaurante
+  const {
+    isOpen: isAlertOpen,
+    onOpen: onAlertOpen,
+    onClose: onAlertClose,
+  } = useDisclosure();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const [storeToSwitch, setStoreToSwitch] = useState<string | null>(null);
+
+  const { isOpen, onOpen: onDrawerOpen, onClose: onDrawerClose } = useDisclosure();
+  const storesRef = useRef<HTMLDivElement>(null);
+  const productsRef = useRef<HTMLDivElement>(null);
 
   // Get theme colors
-  const [teal500, _purple500] = useToken("colors", ["teal.500", "purple.500"])
+  const [teal500, _purple500] = useToken("colors", ["teal.500", "purple.500"]);
 
   // Colors
-  const cardBg = useColorModeValue("white", "gray.800")
-  const accentColor = useColorModeValue("teal.500", "teal.300")
-  const subtleColor = useColorModeValue("gray.100", "gray.700")
-  const textColor = useColorModeValue("gray.800", "white")
-  const mutedTextColor = useColorModeValue("gray.600", "gray.400")
-  const closedBg = useColorModeValue("gray.100", "gray.700")
-  const closedTextColor = useColorModeValue("gray.500", "gray.400")
-  const kitBg = useColorModeValue("purple.50", "purple.900")
-  const kitAccentColor = useColorModeValue("purple.500", "purple.300")
+  const cardBg = useColorModeValue("white", "gray.800");
+  const accentColor = useColorModeValue("teal.500", "teal.300");
+  const subtleColor = useColorModeValue("gray.100", "gray.700");
+  const textColor = useColorModeValue("gray.800", "white");
+  const mutedTextColor = useColorModeValue("gray.600", "gray.400");
+  const closedBg = useColorModeValue("gray.100", "gray.700");
+  const closedTextColor = useColorModeValue("gray.500", "gray.400");
+  const kitBg = useColorModeValue("purple.50", "purple.900");
+  const kitAccentColor = useColorModeValue("purple.500", "purple.300");
 
-  // ----------------------------------
   // 1) Efecto para cargar restaurantes
-  // ----------------------------------
   useEffect(() => {
-    getRestaurantsOpen()
-  }, [])
+    getRestaurantsOpen();
+  }, []);
 
-  // -------------------------------------------------
-  // 2) Efecto para cargar productos, categorías, kits
-  //    cuando se elige un restaurante
-  // -------------------------------------------------
+  // 2) Efecto para cargar productos, categorías, kits cuando se elige un restaurante
   useEffect(() => {
     if (selectedStore) {
-      getProductsAndCategories()
-      getKits()
+      getProductsAndCategories();
+      getKits();
     }
-  }, [selectedStore])
+  }, [selectedStore]);
 
   // ----------------------------------
   //        OBTENER RESTAURANTES
   // ----------------------------------
   const getRestaurantsOpen = async () => {
-    setLoading((prev) => ({ ...prev, restaurants: true }))
+    setLoading((prev) => ({ ...prev, restaurants: true }));
     try {
-      const resp = await restaurantUseCase.getRestaurantsWithShifts()
-      setRestaurants(resp)
+      const resp = await restaurantUseCase.getRestaurantsWithShifts();
+      setRestaurants(resp);
     } catch (error) {
-      console.error("Error fetching restaurants:", error)
+      console.error("Error fetching restaurants:", error);
     } finally {
-      setLoading((prev) => ({ ...prev, restaurants: false }))
+      setLoading((prev) => ({ ...prev, restaurants: false }));
     }
-  }
+  };
 
   // ----------------------------------
   //      OBTENER PRODUCTOS Y CAT
   // ----------------------------------
   const getProductsAndCategories = async () => {
-    setLoading((prev) => ({ ...prev, products: true, categories: true }))
+    setLoading((prev) => ({ ...prev, products: true, categories: true }));
     try {
-      // Fetch products (en este ejemplo no filtra por restaurante, ajústalo si tu backend lo requiere)
-      const productsResp = await productUseCase.getProductsActive()
+      const productsResp = await productUseCase.getProductsActive();
 
-      // Initialize selected price options with the first price option for each product
-      const initialPriceOptions: Record<string, string> = {}
+      // Inicializamos selected price options
+      const initialPriceOptions: Record<string, string> = {};
       productsResp.forEach((product) => {
         if (product.productPrices && product.productPrices.length > 0) {
-          initialPriceOptions[product.id] = product.productPrices[0].id
+          initialPriceOptions[product.id] = product.productPrices[0].id;
         }
-      })
+      });
 
-      setSelectedPriceOptions(initialPriceOptions)
-      setProducts(productsResp)
+      setSelectedPriceOptions(initialPriceOptions);
+      setProducts(productsResp);
 
-      // Fetch all categories
-      const categoriesResp = await categoryUseCase.getAllCategories()
-      setCategories(categoriesResp)
+      const categoriesResp = await categoryUseCase.getAllCategories();
+      setCategories(categoriesResp);
 
-      // Set the first category as selected if there are categories
+      // Seleccionamos la primera categoría si existe
       if (categoriesResp.length > 0) {
-        setSelectedCategory(categoriesResp[0].id)
+        setSelectedCategory(categoriesResp[0].id);
       }
     } catch (error) {
-      console.error("Error fetching products or categories:", error)
+      console.error("Error fetching products or categories:", error);
     } finally {
-      setLoading((prev) => ({ ...prev, products: false, categories: false }))
+      setLoading((prev) => ({ ...prev, products: false, categories: false }));
     }
-  }
+  };
 
   // ----------------------------------
   //         OBTENER KITS
   // ----------------------------------
   const getKits = async () => {
-    setLoading((prev) => ({ ...prev, kits: true }))
+    setLoading((prev) => ({ ...prev, kits: true }));
     try {
-      const kitsResp = await kitUseCase.getAllKitsWithProducts()
+      const kitsResp = await kitUseCase.getAllKitsWithProducts();
 
-      // Enhance kits with product details for display
-      const enhancedKits = await Promise.all(
-        kitsResp.map(async (kit) => {
-          const enhancedProductKit = await Promise.all(
-            kit.ProductKit.map(async (kitProduct) => {
-              // localmente hallamos el Product en "products" (ya fetch)
-              const productDetails = products.find((p) => p.id === kitProduct.productId)
-              return {
-                ...kitProduct,
-                product: productDetails,
-              }
-            })
-          )
-
-          return {
-            ...kit,
-            ProductKit: enhancedProductKit,
-          }
-        })
-      )
-
-      setKits(enhancedKits)
+      // Realmente no es necesario mapear, pero si quisieras enlazar product details, etc.
+      setKits(kitsResp);
     } catch (error) {
-      console.error("Error fetching kits:", error)
+      console.error("Error fetching kits:", error);
     } finally {
-      setLoading((prev) => ({ ...prev, kits: false }))
+      setLoading((prev) => ({ ...prev, kits: false }));
     }
-  }
+  };
 
   // ----------------------------------
   //    CHEQUEAR SI RESTAURANTE ABIERTO
   // ----------------------------------
   const isRestaurantOpen = (restaurant: Restaurant): boolean => {
-    // Si no hay turnos, está cerrado
-    if (!restaurant.Shift || restaurant.Shift.length === 0) return false
-
-    // Tomamos el último turno
-    const latestShift = restaurant.Shift[restaurant.Shift.length - 1]
-    // Si openShift existe y closeShift NO existe => abierto
-    return !!latestShift.openShift && !latestShift.closeShift
-  }
+    if (!restaurant.Shift || restaurant.Shift.length === 0) return false;
+    const latestShift = restaurant.Shift[restaurant.Shift.length - 1];
+    return !!latestShift.openShift && !latestShift.closeShift;
+  };
 
   // ----------------------------------
-  //   MANEJAR SELECCIÓN DE RESTAURANTE
+  //  MANEJAR SELECCIÓN DE RESTAURANTE
   // ----------------------------------
   const handleStoreSelect = (storeId: string) => {
-    const restaurant = restaurants.find((r) => r.id === storeId)
-    if (!restaurant || !isRestaurantOpen(restaurant)) return // no seleccionar si está cerrado
+    const restaurant = restaurants.find((r) => r.id === storeId);
+    if (!restaurant || !isRestaurantOpen(restaurant)) return;
 
-    setSelectedStore(storeId)
+    // Si actualmente no hay restaurante en el carrito, o coincide con el que se quiere seleccionar:
+    if (!currentCartRestaurantId || currentCartRestaurantId === storeId) {
+      // Simplemente seleccionamos y fijamos este restaurante en el carrito
+      dispatch(setRestaurantId(storeId));
+      setSelectedStore(storeId);
 
-    // En mobile => abrimos Drawer
-    if (window.innerWidth < 768) {
-      onOpen()
+      // En mobile => abrimos Drawer
+      if (window.innerWidth < 768) {
+        onDrawerOpen();
+      } else {
+        // Desktop => animamos
+        setShowStores(false);
+        setTimeout(() => {
+          setShowProducts(true);
+        }, 300);
+      }
     } else {
-      // Desktop => animamos la transición
-      setShowStores(false)
-      setTimeout(() => {
-        setShowProducts(true)
-      }, 300)
+      // Significa que el carrito ya tenía un restaurante distinto,
+      // necesitamos confirmar si se vacía el carrito.
+      setStoreToSwitch(storeId);
+      onAlertOpen(); // Abrimos el AlertDialog para confirmar
     }
-  }
+  };
 
   // ----------------------------------
   //      VOLVER A LISTA RESTAURANTES
   // ----------------------------------
   const handleBackToStores = () => {
-    setShowProducts(false)
+    setShowProducts(false);
     setTimeout(() => {
-      setShowStores(true)
-      setSelectedStore(null)
-    }, 300)
-  }
+      setShowStores(true);
+      setSelectedStore(null);
+    }, 300);
+  };
+
+  // Manejar confirmación del cambio de restaurante
+  const handleConfirmChangeRestaurant = () => {
+    if (storeToSwitch) {
+      // Vaciamos el carrito y seteamos el nuevo restaurante
+      dispatch(clearCart());
+      dispatch(setRestaurantId(storeToSwitch));
+      setSelectedStore(storeToSwitch);
+    }
+    onAlertClose();
+    setStoreToSwitch(null);
+
+    // Modo responsive
+    if (window.innerWidth < 768) {
+      onDrawerOpen();
+    } else {
+      setShowStores(false);
+      setTimeout(() => {
+        setShowProducts(true);
+      }, 300);
+    }
+  };
+
+  // Manejar cancelación del cambio de restaurante
+  const handleCancelChangeRestaurant = () => {
+    setStoreToSwitch(null);
+    onAlertClose();
+  };
 
   // Dato del restaurante seleccionado
-  const selectedStoreData = restaurants.find((store) => store.id === selectedStore)
+  const selectedStoreData = restaurants.find((store) => store.id === selectedStore);
 
   // ----------------------------------
   //    ESTADO DEL TURNO (TEXTO)
   // ----------------------------------
   const getShiftStatusText = (restaurant: Restaurant): string => {
     if (!restaurant.Shift || restaurant.Shift.length === 0) {
-      return "No Shifts"
+      return "No Shifts";
     }
-
-    const latestShift = restaurant.Shift[restaurant.Shift.length - 1]
+    const latestShift = restaurant.Shift[restaurant.Shift.length - 1];
     if (latestShift.openShift && !latestShift.closeShift) {
-      // Formato de hora
-      const openTime = new Date(latestShift.openShift)
+      const openTime = new Date(latestShift.openShift);
       const formattedTime = openTime.toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
-      })
-      return `Open since ${formattedTime}`
+      });
+      return `Open since ${formattedTime}`;
     } else if (latestShift.openShift && latestShift.closeShift) {
-      // Cerrado
-      const closeTime = new Date(latestShift.closeShift)
+      const closeTime = new Date(latestShift.closeShift);
       const formattedTime = closeTime.toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
-      })
-      return `Closed at ${formattedTime}`
+      });
+      return `Closed at ${formattedTime}`;
     }
-
-    return "Status Unknown"
-  }
+    return "Status Unknown";
+  };
 
   // ----------------------------------
   //   FILTRADO DE PRODUCTOS POR CAT
   // ----------------------------------
   const getFilteredProducts = () => {
-    if (!selectedCategory) return products
-    return products.filter((product) => product.categoryId === selectedCategory)
-  }
+    if (!selectedCategory) return products;
+    return products.filter((product) => product.categoryId === selectedCategory);
+  };
 
   // ----------------------------------
   //   OBTENER NOMBRE DE CATEGORÍA
   // ----------------------------------
   const getCategoryName = (categoryId: string) => {
-    const category = categories.find((cat) => cat.id === categoryId)
-    return category ? category.name : "Unknown Category"
-  }
+    const category = categories.find((cat) => cat.id === categoryId);
+    return category ? category.name : "Unknown Category";
+  };
 
   // ----------------------------------
   //  PRODUCTO "POPULAR" (demo)
   // ----------------------------------
   const isProductPopular = (productId: string) => {
-    // Number random determinístico
-    const numericValue = productId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return numericValue % 10 < 3 // 30% chance popular
-  }
+    const numericValue = productId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return numericValue % 10 < 3;
+  };
 
   // ----------------------------------
   //      OBTENER PRECIO SELECCIONADO
   // ----------------------------------
   const getSelectedPrice = (product: Product): number | undefined => {
-    if (!product.productPrices || product.productPrices.length === 0) return undefined
-    const selectedPriceId = selectedPriceOptions[product.id]
+    if (!product.productPrices || product.productPrices.length === 0) return undefined;
+    const selectedPriceId = selectedPriceOptions[product.id];
     if (selectedPriceId) {
-      const selectedPrice = product.productPrices.find((price) => price.id === selectedPriceId)
-      return selectedPrice?.price
+      const selectedPrice = product.productPrices.find((price) => price.id === selectedPriceId);
+      return selectedPrice?.price;
     }
-    // Si no hay 'selectedPriceId', default al primero
-    return product.productPrices[0].price
-  }
+    return product.productPrices[0].price;
+  };
 
   // ----------------------------------
   //         OBTENER PRECIO DE KIT
   // ----------------------------------
   const getKitPrice = (kit: Kit): number | undefined => {
-    if (!kit.KitPrice || kit.KitPrice.length === 0) return undefined
-    return kit.KitPrice[0].price
-  }
+    if (!kit.KitPrice || kit.KitPrice.length === 0) return undefined;
+    return kit.KitPrice[0].price;
+  };
 
   // ----------------------------------
   //  SELECCIONAR UNA OPCIÓN DE PRECIO
@@ -361,57 +381,54 @@ export default function StoreShowcase() {
     setSelectedPriceOptions((prev) => ({
       ...prev,
       [productId]: priceId,
-    }))
-  }
+    }));
+  };
 
   // ----------------------------------
   // ETIQUETA PARA UNA OPCIÓN DE PRECIO
   // ----------------------------------
   const getPriceOptionLabel = (_price: ProductPrice, index: number): string => {
-    const sizeOptions = ["Small", "Medium", "Large", "Extra Large"]
-    return index < sizeOptions.length ? sizeOptions[index] : `Option ${index + 1}`
-  }
+    const sizeOptions = ["Small", "Medium", "Large", "Extra Large"];
+    return index < sizeOptions.length ? sizeOptions[index] : `Option ${index + 1}`;
+  };
 
   // ----------------------------------
   //  OBTENER NOMBRE DE PRODUCTO
   // ----------------------------------
   const getProductName = (productId: string): string => {
-    const product = products.find((p) => p.id === productId)
-    return product ? product.name : "Unknown Product"
-  }
+    const product = products.find((p) => p.id === productId);
+    return product ? product.name : "Unknown Product";
+  };
 
   // ----------------------------------
   //     MANEJAR CAMBIO DE TAB
   // ----------------------------------
   const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab)
-  }
+    setActiveTab(tab);
+  };
 
   // ----------------------------------
-  //     HANDLERS PARA EL CARRITO
+  //    HANDLERS PARA EL CARRITO
   // ----------------------------------
-  // 1) Agregar producto al carrito
   const handleAddProductToCart = (product: Product) => {
-    // Buscar el priceId seleccionado
-    const selectedPriceId = selectedPriceOptions[product.id]
+    const selectedPriceId = selectedPriceOptions[product.id];
     dispatch(
       addProductToCart({
         product,
-        quantity: 1,              // Ajusta la cantidad según tu lógica
+        quantity: 1,
         selectedPriceId,
       })
-    )
-  }
+    );
+  };
 
-  // 2) Agregar kit al carrito
   const handleAddKitToCart = (kit: Kit) => {
     dispatch(
       addKitToCart({
         kit,
-        quantity: 1,             // Ajusta la cantidad según tu lógica
+        quantity: 1,
       })
-    )
-  }
+    );
+  };
 
   // ----------------------------------
   //             RENDER
@@ -488,7 +505,7 @@ export default function StoreShowcase() {
           ) : (
             <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={6}>
               {restaurants.map((restaurant) => {
-                const isOpen = isRestaurantOpen(restaurant)
+                const isOpen = isRestaurantOpen(restaurant);
 
                 return (
                   <Card
@@ -588,7 +605,6 @@ export default function StoreShowcase() {
                         </Tag>
                       </HStack>
 
-                      {/* Shift status */}
                       <Text fontSize="sm" color={!isOpen ? closedTextColor : "green.500"} mb={3}>
                         <TimeIcon mr={1} fontSize="xs" />
                         {getShiftStatusText(restaurant)}
@@ -606,7 +622,7 @@ export default function StoreShowcase() {
                       </Button>
                     </CardBody>
                   </Card>
-                )
+                );
               })}
             </SimpleGrid>
           )}
@@ -705,7 +721,7 @@ export default function StoreShowcase() {
                     isLazy
                     onChange={(index) => {
                       if (categories[index]) {
-                        setSelectedCategory(categories[index].id)
+                        setSelectedCategory(categories[index].id);
                       }
                     }}
                   >
@@ -962,7 +978,7 @@ export default function StoreShowcase() {
       </SlideFade>
 
       {/* Mobile Drawer for Products */}
-      <Drawer isOpen={isOpen} placement="bottom" onClose={onClose} size="full">
+      <Drawer isOpen={isOpen} placement="bottom" onClose={onDrawerClose} size="full">
         <DrawerOverlay />
         <DrawerContent borderTopRadius="xl">
           <DrawerCloseButton />
@@ -973,8 +989,8 @@ export default function StoreShowcase() {
                 variant="ghost"
                 mr={4}
                 onClick={() => {
-                  onClose()
-                  setSelectedStore(null)
+                  onDrawerClose();
+                  setSelectedStore(null);
                 }}
                 size="sm"
               >
@@ -1021,7 +1037,7 @@ export default function StoreShowcase() {
                     isLazy
                     onChange={(index) => {
                       if (categories[index]) {
-                        setSelectedCategory(categories[index].id)
+                        setSelectedCategory(categories[index].id);
                       }
                     }}
                   >
@@ -1234,6 +1250,37 @@ export default function StoreShowcase() {
           </DrawerBody>
         </DrawerContent>
       </Drawer>
+
+      {/* AlertDialog para confirmar cambio de restaurante */}
+      <AlertDialog
+        isOpen={isAlertOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onAlertClose}
+        isCentered
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Cambiar de Restaurante
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              Tienes productos en el carrito de otro restaurante.
+              Si cambias de tienda, se vaciará tu carrito.
+              ¿Deseas continuar?
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={handleCancelChangeRestaurant}>
+                Cancelar
+              </Button>
+              <Button colorScheme="red" onClick={handleConfirmChangeRestaurant} ml={3}>
+                Cambiar
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Box>
-  )
+  );
 }
