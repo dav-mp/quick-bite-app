@@ -55,15 +55,20 @@ import {
   StarIcon,
   PlusSquareIcon,
 } from "@chakra-ui/icons"
+
+// --- Importamos nuestros casos de uso y modelos ---
 import { restaurantUseCase } from "../../../../app/infrastructure/DI/RestaurantContainer"
 import { productUseCase } from "../../../../app/infrastructure/DI/ProductContainer"
 import { categoryUseCase } from "../../../../app/infrastructure/DI/CategoryContainer"
-import { kitUseCase } from "../../../../app/infrastructure/DI/KitContainer" // Assuming this exists
+import { kitUseCase } from "../../../../app/infrastructure/DI/KitContainer"
 import { Restaurant } from "../../../../app/domain/models/restaurant/Restaurant"
 import { Product, ProductPrice } from "../../../../app/domain/models/product/Product"
 import { Kit } from "../../../../app/domain/models/kit/Kit"
 import { Category } from "../../../../app/domain/models/category/Category"
 
+// --- Importamos las acciones y el hook de Redux para dispatch ---
+import { useAppDispatch } from "../../../../app/infrastructure/store/Hooks"
+import { addKitToCart, addProductToCart } from "../../../../app/infrastructure/store/CartSlice"
 
 // Default restaurant image
 const DEFAULT_RESTAURANT_IMAGE =
@@ -81,6 +86,8 @@ const DEFAULT_KIT_IMAGE =
 type TabType = "products" | "kits"
 
 export default function StoreShowcase() {
+  const dispatch = useAppDispatch()               // <-- para despachar acciones a Redux
+
   const [selectedStore, setSelectedStore] = useState<string | null>(null)
   const [showStores, setShowStores] = useState(true)
   const [showProducts, setShowProducts] = useState(false)
@@ -115,12 +122,17 @@ export default function StoreShowcase() {
   const kitBg = useColorModeValue("purple.50", "purple.900")
   const kitAccentColor = useColorModeValue("purple.500", "purple.300")
 
-  // Fetch restaurants on component mount
+  // ----------------------------------
+  // 1) Efecto para cargar restaurantes
+  // ----------------------------------
   useEffect(() => {
     getRestaurantsOpen()
   }, [])
 
-  // Fetch products, categories, and kits when a restaurant is selected
+  // -------------------------------------------------
+  // 2) Efecto para cargar productos, categorías, kits
+  //    cuando se elige un restaurante
+  // -------------------------------------------------
   useEffect(() => {
     if (selectedStore) {
       getProductsAndCategories()
@@ -128,6 +140,9 @@ export default function StoreShowcase() {
     }
   }, [selectedStore])
 
+  // ----------------------------------
+  //        OBTENER RESTAURANTES
+  // ----------------------------------
   const getRestaurantsOpen = async () => {
     setLoading((prev) => ({ ...prev, restaurants: true }))
     try {
@@ -140,10 +155,13 @@ export default function StoreShowcase() {
     }
   }
 
+  // ----------------------------------
+  //      OBTENER PRODUCTOS Y CAT
+  // ----------------------------------
   const getProductsAndCategories = async () => {
     setLoading((prev) => ({ ...prev, products: true, categories: true }))
     try {
-      // Fetch products for the selected restaurant
+      // Fetch products (en este ejemplo no filtra por restaurante, ajústalo si tu backend lo requiere)
       const productsResp = await productUseCase.getProductsActive()
 
       // Initialize selected price options with the first price option for each product
@@ -172,11 +190,12 @@ export default function StoreShowcase() {
     }
   }
 
+  // ----------------------------------
+  //         OBTENER KITS
+  // ----------------------------------
   const getKits = async () => {
     setLoading((prev) => ({ ...prev, kits: true }))
     try {
-      // Assuming there's a method to fetch kits by restaurant ID
-      // If not, you might need to adjust this based on your API
       const kitsResp = await kitUseCase.getAllKitsWithProducts()
 
       // Enhance kits with product details for display
@@ -184,20 +203,20 @@ export default function StoreShowcase() {
         kitsResp.map(async (kit) => {
           const enhancedProductKit = await Promise.all(
             kit.ProductKit.map(async (kitProduct) => {
-              // Find the product details from the products we already fetched
+              // localmente hallamos el Product en "products" (ya fetch)
               const productDetails = products.find((p) => p.id === kitProduct.productId)
               return {
                 ...kitProduct,
                 product: productDetails,
               }
-            }),
+            })
           )
 
           return {
             ...kit,
             ProductKit: enhancedProductKit,
           }
-        }),
+        })
       )
 
       setKits(enhancedKits)
@@ -208,60 +227,65 @@ export default function StoreShowcase() {
     }
   }
 
-  // Check if a restaurant is open based on its Shift array
+  // ----------------------------------
+  //    CHEQUEAR SI RESTAURANTE ABIERTO
+  // ----------------------------------
   const isRestaurantOpen = (restaurant: Restaurant): boolean => {
-    // If there are no shifts, the restaurant is closed
-    if (!restaurant.Shift || restaurant.Shift.length === 0) {
-      return false
-    }
+    // Si no hay turnos, está cerrado
+    if (!restaurant.Shift || restaurant.Shift.length === 0) return false
 
-    // Get the latest shift (assuming shifts are ordered chronologically)
+    // Tomamos el último turno
     const latestShift = restaurant.Shift[restaurant.Shift.length - 1]
-
-    // If the latest shift has openShift but no closeShift, the restaurant is open
+    // Si openShift existe y closeShift NO existe => abierto
     return !!latestShift.openShift && !latestShift.closeShift
   }
 
+  // ----------------------------------
+  //   MANEJAR SELECCIÓN DE RESTAURANTE
+  // ----------------------------------
   const handleStoreSelect = (storeId: string) => {
     const restaurant = restaurants.find((r) => r.id === storeId)
-
-    // Don't select closed restaurants
-    if (!restaurant || !isRestaurantOpen(restaurant)) return
+    if (!restaurant || !isRestaurantOpen(restaurant)) return // no seleccionar si está cerrado
 
     setSelectedStore(storeId)
 
-    // On mobile, open the drawer when a restaurant is selected
+    // En mobile => abrimos Drawer
     if (window.innerWidth < 768) {
       onOpen()
     } else {
-      // Animate the transition on desktop
+      // Desktop => animamos la transición
       setShowStores(false)
       setTimeout(() => {
         setShowProducts(true)
-      }, 300) // Wait for exit animation to complete
+      }, 300)
     }
   }
 
+  // ----------------------------------
+  //      VOLVER A LISTA RESTAURANTES
+  // ----------------------------------
   const handleBackToStores = () => {
     setShowProducts(false)
     setTimeout(() => {
       setShowStores(true)
       setSelectedStore(null)
-    }, 300) // Wait for exit animation to complete
+    }, 300)
   }
 
+  // Dato del restaurante seleccionado
   const selectedStoreData = restaurants.find((store) => store.id === selectedStore)
 
-  // Function to get shift status text
+  // ----------------------------------
+  //    ESTADO DEL TURNO (TEXTO)
+  // ----------------------------------
   const getShiftStatusText = (restaurant: Restaurant): string => {
     if (!restaurant.Shift || restaurant.Shift.length === 0) {
       return "No Shifts"
     }
 
     const latestShift = restaurant.Shift[restaurant.Shift.length - 1]
-
     if (latestShift.openShift && !latestShift.closeShift) {
-      // Format the open time
+      // Formato de hora
       const openTime = new Date(latestShift.openShift)
       const formattedTime = openTime.toLocaleTimeString("en-US", {
         hour: "numeric",
@@ -270,7 +294,7 @@ export default function StoreShowcase() {
       })
       return `Open since ${formattedTime}`
     } else if (latestShift.openShift && latestShift.closeShift) {
-      // Format the close time
+      // Cerrado
       const closeTime = new Date(latestShift.closeShift)
       const formattedTime = closeTime.toLocaleTimeString("en-US", {
         hour: "numeric",
@@ -283,50 +307,56 @@ export default function StoreShowcase() {
     return "Status Unknown"
   }
 
-  // Get products filtered by selected category
+  // ----------------------------------
+  //   FILTRADO DE PRODUCTOS POR CAT
+  // ----------------------------------
   const getFilteredProducts = () => {
     if (!selectedCategory) return products
     return products.filter((product) => product.categoryId === selectedCategory)
   }
 
-  // Get category name by ID
+  // ----------------------------------
+  //   OBTENER NOMBRE DE CATEGORÍA
+  // ----------------------------------
   const getCategoryName = (categoryId: string) => {
     const category = categories.find((cat) => cat.id === categoryId)
     return category ? category.name : "Unknown Category"
   }
 
-  // Check if a product is popular (for demo purposes, we'll consider 30% of products as popular)
+  // ----------------------------------
+  //  PRODUCTO "POPULAR" (demo)
+  // ----------------------------------
   const isProductPopular = (productId: string) => {
-    // Convert the product ID to a number for deterministic "randomness"
+    // Number random determinístico
     const numericValue = productId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return numericValue % 10 < 3 // 30% chance of being popular
+    return numericValue % 10 < 3 // 30% chance popular
   }
 
-  // Get the selected price for a product
+  // ----------------------------------
+  //      OBTENER PRECIO SELECCIONADO
+  // ----------------------------------
   const getSelectedPrice = (product: Product): number | undefined => {
-    if (!product.productPrices || product.productPrices.length === 0) {
-      return undefined
-    }
-
+    if (!product.productPrices || product.productPrices.length === 0) return undefined
     const selectedPriceId = selectedPriceOptions[product.id]
     if (selectedPriceId) {
       const selectedPrice = product.productPrices.find((price) => price.id === selectedPriceId)
       return selectedPrice?.price
     }
-
-    // Default to first price if no selection
+    // Si no hay 'selectedPriceId', default al primero
     return product.productPrices[0].price
   }
 
-  // Get kit price (first price in the array)
+  // ----------------------------------
+  //         OBTENER PRECIO DE KIT
+  // ----------------------------------
   const getKitPrice = (kit: Kit): number | undefined => {
-    if (!kit.KitPrice || kit.KitPrice.length === 0) {
-      return undefined
-    }
+    if (!kit.KitPrice || kit.KitPrice.length === 0) return undefined
     return kit.KitPrice[0].price
   }
 
-  // Handle price option selection
+  // ----------------------------------
+  //  SELECCIONAR UNA OPCIÓN DE PRECIO
+  // ----------------------------------
   const handlePriceSelect = (productId: string, priceId: string) => {
     setSelectedPriceOptions((prev) => ({
       ...prev,
@@ -334,23 +364,58 @@ export default function StoreShowcase() {
     }))
   }
 
-  // Get price option label (for demo purposes)
+  // ----------------------------------
+  // ETIQUETA PARA UNA OPCIÓN DE PRECIO
+  // ----------------------------------
   const getPriceOptionLabel = (_price: ProductPrice, index: number): string => {
     const sizeOptions = ["Small", "Medium", "Large", "Extra Large"]
     return index < sizeOptions.length ? sizeOptions[index] : `Option ${index + 1}`
   }
 
-  // Get product name by ID
+  // ----------------------------------
+  //  OBTENER NOMBRE DE PRODUCTO
+  // ----------------------------------
   const getProductName = (productId: string): string => {
     const product = products.find((p) => p.id === productId)
     return product ? product.name : "Unknown Product"
   }
 
-  // Handle tab change
+  // ----------------------------------
+  //     MANEJAR CAMBIO DE TAB
+  // ----------------------------------
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab)
   }
 
+  // ----------------------------------
+  //     HANDLERS PARA EL CARRITO
+  // ----------------------------------
+  // 1) Agregar producto al carrito
+  const handleAddProductToCart = (product: Product) => {
+    // Buscar el priceId seleccionado
+    const selectedPriceId = selectedPriceOptions[product.id]
+    dispatch(
+      addProductToCart({
+        product,
+        quantity: 1,              // Ajusta la cantidad según tu lógica
+        selectedPriceId,
+      })
+    )
+  }
+
+  // 2) Agregar kit al carrito
+  const handleAddKitToCart = (kit: Kit) => {
+    dispatch(
+      addKitToCart({
+        kit,
+        quantity: 1,             // Ajusta la cantidad según tu lógica
+      })
+    )
+  }
+
+  // ----------------------------------
+  //             RENDER
+  // ----------------------------------
   return (
     <Box position="relative" overflow="hidden" minH="80vh">
       {/* Heading Section with Gradient Background */}
@@ -736,15 +801,15 @@ export default function StoreShowcase() {
                                             rightIcon={<ChevronDownIcon />}
                                           >
                                             {product.productPrices.findIndex(
-                                              (p) => p.id === selectedPriceOptions[product.id],
+                                              (p) => p.id === selectedPriceOptions[product.id]
                                             ) !== -1
                                               ? getPriceOptionLabel(
                                                   product.productPrices.find(
-                                                    (p) => p.id === selectedPriceOptions[product.id],
+                                                    (p) => p.id === selectedPriceOptions[product.id]
                                                   )!,
                                                   product.productPrices.findIndex(
-                                                    (p) => p.id === selectedPriceOptions[product.id],
-                                                  ),
+                                                    (p) => p.id === selectedPriceOptions[product.id]
+                                                  )
                                                 )
                                               : "Select Size"}
                                           </MenuButton>
@@ -776,6 +841,7 @@ export default function StoreShowcase() {
                                     }}
                                     transition="all 0.2s"
                                     isDisabled={!product.productPrices || product.productPrices.length === 0}
+                                    onClick={() => handleAddProductToCart(product)}
                                   >
                                     Add to Cart
                                   </Button>
@@ -880,6 +946,7 @@ export default function StoreShowcase() {
                               transform: "scale(1.05)",
                             }}
                             transition="all 0.2s"
+                            onClick={() => handleAddKitToCart(kit)}
                           >
                             Add Kit to Cart
                           </Button>
@@ -1024,15 +1091,15 @@ export default function StoreShowcase() {
                                                 rightIcon={<ChevronDownIcon />}
                                               >
                                                 {product.productPrices.findIndex(
-                                                  (p) => p.id === selectedPriceOptions[product.id],
+                                                  (p) => p.id === selectedPriceOptions[product.id]
                                                 ) !== -1
                                                   ? getPriceOptionLabel(
                                                       product.productPrices.find(
-                                                        (p) => p.id === selectedPriceOptions[product.id],
+                                                        (p) => p.id === selectedPriceOptions[product.id]
                                                       )!,
                                                       product.productPrices.findIndex(
-                                                        (p) => p.id === selectedPriceOptions[product.id],
-                                                      ),
+                                                        (p) => p.id === selectedPriceOptions[product.id]
+                                                      )
                                                     )
                                                   : "Select Size"}
                                               </MenuButton>
@@ -1057,6 +1124,7 @@ export default function StoreShowcase() {
                                           colorScheme="teal"
                                           isRound
                                           isDisabled={!product.productPrices || product.productPrices.length === 0}
+                                          onClick={() => handleAddProductToCart(product)}
                                         />
                                       </Flex>
                                     ) : (
@@ -1143,11 +1211,15 @@ export default function StoreShowcase() {
                             </Flex>
 
                             <Tooltip
-                              label={kit.ProductKit.map((kp) => `${kp.quantity}x ${getProductName(kp.productId)}`).join(
-                                ", ",
-                              )}
+                              label={kit.ProductKit.map((kp) => `${kp.quantity}x ${getProductName(kp.productId)}`).join(", ")}
                             >
-                              <Button leftIcon={<PlusSquareIcon />} colorScheme="purple" size="sm" variant="outline">
+                              <Button
+                                leftIcon={<PlusSquareIcon />}
+                                colorScheme="purple"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleAddKitToCart(kit)}
+                              >
                                 Add Kit
                               </Button>
                             </Tooltip>

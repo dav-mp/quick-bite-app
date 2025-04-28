@@ -34,7 +34,7 @@ export interface CreateOrderRequest {
  * Es equivalente a tu CreateOrderDetailDTO del backend.
  */
 export interface CreateOrderDetailRequest {
-  productId: string;
+  productId?: string;
   quantity: number;
   productPriceEspecialId?: string;
   kitId?: string;
