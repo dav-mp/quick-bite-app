@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import {
   Box,
   Flex,
@@ -11,228 +11,342 @@ import {
   VStack,
   useColorModeValue,
   useToast,
-} from '@chakra-ui/react';
-import useRedirect from '../../../../shared/hooks/useRedirect';
-import { authUseCase } from '../../../../../app/infrastructure/DI/AuthContainer';
+  Text,
+  InputGroup,
+  InputRightElement,
+  IconButton,
+  SimpleGrid,
+  Image,
+} from '@chakra-ui/react'
+import { motion } from 'framer-motion'
+import { Eye, EyeOff, UserPlus, User, Mail, Lock, Phone, MapPin, Calendar } from 'lucide-react'
+import useRedirect from '../../../../shared/hooks/useRedirect'
+import { authUseCase } from '../../../../../app/infrastructure/DI/AuthContainer'
 
-// Ajusta la ruta de import según tu estructura real
+const MotionBox = motion(Box)
+const MotionFlex = motion(Flex)
+const MotionButton = motion(Button)
 
 const RegisterUser: React.FC = () => {
-  const redirect = useRedirect();
+  const redirect = useRedirect()
 
   // Estados para cada uno de los campos
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [age, setAge] = useState<number | string>('');
-  const [address, setAddress] = useState('');
-  const [phone, setPhone] = useState('');
-  const [userName, setUserName] = useState('');
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [age, setAge] = useState<number | string>('')
+  const [address, setAddress] = useState('')
+  const [phone, setPhone] = useState('')
+  const [userName, setUserName] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   
-  const toast = useToast();
+  const toast = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
+    setIsLoading(true)
 
     try {
-      // Opcional: Toast de info
+      // Toast de info
       toast({
-        title: 'Intentando registrar usuario...',
-        description: `Verificando datos...`,
-        status: 'info',
-        duration: 2000,
+        title: 'Creating account...',
+        description: `
+Verifying
+information
+...`,
+status: "info", duration
+: 2000,
         isClosable: true,
-      });
+      })
 
-      // Llamamos al caso de uso
-      const newUser = await authUseCase.register(
-        name,
-        email,
-        password,
-        Number(age),
-        address,
-        phone,
-        userName
-      );
+// Llamamos al caso de uso
+const newUser = await authUseCase.register(name, email, password, Number(age), address, phone, userName)
 
-      // Si se registró correctamente
-      toast({
-        title: 'Usuario registrado',
-        description: `Bienvenido, ${newUser.fullName}`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
+// Si se registró correctamente
+toast({
+  title: "Account created!",
+  description: `Welcome, ${newUser.fullName}`,
+  status: "success",
+  duration: 3000,
+  isClosable: true,
+})
 
-      // Redirigir a login, dashboard o donde requieras
-      redirect('/login');
+// Redirigir a login
+redirect("/login-external")
 
-    } catch (error: any) {
-      // Mostramos un toast con el error
-      toast({
-        title: 'Error al registrar usuario',
-        description: error.message || 'Ocurrió un error',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    }
-  };
+} catch (error: any)
+{
+  // Mostramos un toast con el error
+  toast({
+    title: "Registration failed",
+    description: error.message || "An error occurred",
+    status: "error",
+    duration: 3000,
+    isClosable: true,
+  })
+}
+finally
+{
+  setIsLoading(false)
+}
+}
 
-  // Paleta de colores
-  const backgroundColor = useColorModeValue('gray.100', 'gray.800');
-  const boxBg = useColorModeValue('white', 'gray.700');
-  const inputBg = useColorModeValue('white', 'gray.600');
-  const textColor = useColorModeValue('gray.800', 'gray.100');
+// Colors
+const bgGradient = useColorModeValue(
+  "linear-gradient(to bottom right, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8))",
+  "linear-gradient(to bottom right, rgba(23, 25, 35, 0.9), rgba(23, 25, 35, 0.8))",
+)
+const cardBg = useColorModeValue("white", "gray.800")
+const textColor = useColorModeValue("gray.800", "white")
+const mutedTextColor = useColorModeValue("gray.600", "gray.400")
+const inputBg = useColorModeValue("gray.50", "gray.700")
+const accentColor = useColorModeValue("pink.500", "pink.300")
 
-  return (
+return (
     <Flex
       minH="100vh"
       w="full"
-      bg={backgroundColor}
       align="center"
       justify="center"
       p={4}
+      bgImage="url('/placeholder.svg?key=novr0')"
+      bgSize="cover"
+      bgPosition="center"
     >
-      <Box
-        bg={boxBg}
-        boxShadow="md"
-        borderRadius="lg"
-        p={8}
-        w={{ base: 'full', sm: 'md' }}
-        maxW="400px"
+      <MotionBox
+        bg={bgGradient}
+        backdropFilter="blur(10px)"
+        borderRadius="2xl"
+        boxShadow="xl"
+        overflow="hidden"
+        w={{ base: 'full', md: '800px' }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
       >
-        <VStack spacing={6} as="form" onSubmit={handleSubmit}>
-          <Heading as="h1" size="lg" textAlign="center" color={textColor}>
-            Registro de Usuario
-          </Heading>
-
-          {/* Campo: Nombre */}
-          <FormControl id="name" isRequired>
-            <FormLabel color={textColor}>Nombre</FormLabel>
-            <Input
-              type="text"
-              placeholder="Ingresa tu nombre completo"
-              bg={inputBg}
-              variant="filled"
-              focusBorderColor="blue.400"
-              color={textColor}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </FormControl>
-
-          {/* Campo: Email */}
-          <FormControl id="email" isRequired>
-            <FormLabel color={textColor}>Correo electrónico</FormLabel>
-            <Input
-              type="email"
-              placeholder="Ingresa tu correo"
-              bg={inputBg}
-              variant="filled"
-              focusBorderColor="blue.400"
-              color={textColor}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </FormControl>
-
-          {/* Campo: Contraseña */}
-          <FormControl id="password" isRequired>
-            <FormLabel color={textColor}>Contraseña</FormLabel>
-            <Input
-              type="password"
-              placeholder="Tu contraseña"
-              bg={inputBg}
-              variant="filled"
-              focusBorderColor="blue.400"
-              color={textColor}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </FormControl>
-
-          {/* Campo: Edad */}
-          <FormControl id="age" isRequired>
-            <FormLabel color={textColor}>Edad</FormLabel>
-            <Input
-              type="number"
-              placeholder="Ingresa tu edad"
-              bg={inputBg}
-              variant="filled"
-              focusBorderColor="blue.400"
-              color={textColor}
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-            />
-          </FormControl>
-
-          {/* Campo: Dirección */}
-          <FormControl id="address" isRequired>
-            <FormLabel color={textColor}>Dirección</FormLabel>
-            <Input
-              type="text"
-              placeholder="Ingresa tu dirección"
-              bg={inputBg}
-              variant="filled"
-              focusBorderColor="blue.400"
-              color={textColor}
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-            />
-          </FormControl>
-
-          {/* Campo: Teléfono */}
-          <FormControl id="phone" isRequired>
-            <FormLabel color={textColor}>Teléfono</FormLabel>
-            <Input
-              type="text"
-              placeholder="Ingresa tu teléfono"
-              bg={inputBg}
-              variant="filled"
-              focusBorderColor="blue.400"
-              color={textColor}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </FormControl>
-
-          {/* Campo: UserName (opcional) */}
-          <FormControl id="userName">
-            <FormLabel color={textColor}>Nombre de usuario (opcional)</FormLabel>
-            <Input
-              type="text"
-              placeholder="Máximo 10 caracteres"
-              bg={inputBg}
-              variant="filled"
-              focusBorderColor="blue.400"
-              color={textColor}
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-            />
-          </FormControl>
-
-          {/* Botón de registro */}
-          <Button type="submit" colorScheme="blue" width="full">
-            Registrar
-          </Button>
-
-          {/* Link para iniciar sesión (opcional) */}
-          <Flex
-            w="full"
-            align="center"
-            justify="center"
-            fontSize="sm"
-            color={useColorModeValue('gray.600', 'gray.300')}
+        <MotionFlex
+          direction="column"
+          align="center"
+          justify="center"
+          bg="linear-gradient(135deg, #FF0080 0%, #7928CA 100%)"
+          p={6}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+        >
+          <Box
+            bg="white"
+            borderRadius="full"
+            p={2}
+            mb={3}
+            boxShadow="md"
           >
-            <Link onClick={() => redirect("/login")} _hover={{ textDecoration: 'underline' }}>
-              ¿Ya tienes cuenta? Inicia sesión
-            </Link>
-          </Flex>
-        </VStack>
-      </Box>
-    </Flex>
-  );
-};
+            <Image
+              src="/placeholder.svg?key=j06cm"
+              alt="QuickBite Logo"
+              width="60px"
+              height="60px"
+            />
+          </Box>
+          <Heading color="white" size="lg" textAlign="center">
+            Create Your Account
+          </Heading>
+          <Text color="whiteAlpha.900" fontSize="sm" mt={1}>
+            Join QuickBite and discover amazing food
+          </Text>
+        </MotionFlex>
 
-export default RegisterUser;
+        <Box bg={cardBg} p={8}>
+          <VStack spacing={6} as="form" onSubmit={handleSubmit}>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6} width="full">
+              <FormControl id="name" isRequired>
+                <FormLabel color={textColor}>Full Name</FormLabel>
+                <InputGroup>
+                  <Input
+                    type="text"
+                    placeholder="Enter your full name"
+                    bg={inputBg}
+                    focusBorderColor="pink.400"
+                    color={textColor}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    borderRadius="lg"
+                    pl={10}
+                  />
+                  <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" color={mutedTextColor}>
+                    <User size={18} />
+                  </Box>
+                </InputGroup>
+              </FormControl>
+
+              <FormControl id="email" isRequired>
+                <FormLabel color={textColor}>Email</FormLabel>
+                <InputGroup>
+                  <Input
+                    type="email"
+                    placeholder="Enter your email"
+                    bg={inputBg}
+                    focusBorderColor="pink.400"
+                    color={textColor}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    borderRadius="lg"
+                    pl={10}
+                  />
+                  <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" color={mutedTextColor}>
+                    <Mail size={18} />
+                  </Box>
+                </InputGroup>
+              </FormControl>
+
+              <FormControl id="password" isRequired>
+                <FormLabel color={textColor}>Password</FormLabel>
+                <InputGroup>
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Create a password"
+                    bg={inputBg}
+                    focusBorderColor="pink.400"
+                    color={textColor}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    borderRadius="lg"
+                    pl={10}
+                  />
+                  <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" color={mutedTextColor}>
+                    <Lock size={18} />
+                  </Box>
+                  <InputRightElement>
+                    <IconButton
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      icon={showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      variant="ghost"
+                      colorScheme="pink"
+                      onClick={() => setShowPassword(!showPassword)}
+                    />
+                  </InputRightElement>
+                </InputGroup>
+              </FormControl>
+
+              <FormControl id="age" isRequired>
+                <FormLabel color={textColor}>Age</FormLabel>
+                <InputGroup>
+                  <Input
+                    type="number"
+                    placeholder="Enter your age"
+                    bg={inputBg}
+                    focusBorderColor="pink.400"
+                    color={textColor}
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    borderRadius="lg"
+                    pl={10}
+                  />
+                  <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" color={mutedTextColor}>
+                    <Calendar size={18} />
+                  </Box>
+                </InputGroup>
+              </FormControl>
+
+              <FormControl id="address" isRequired>
+                <FormLabel color={textColor}>Address</FormLabel>
+                <InputGroup>
+                  <Input
+                    type="text"
+                    placeholder="Enter your address"
+                    bg={inputBg}
+                    focusBorderColor="pink.400"
+                    color={textColor}
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    borderRadius="lg"
+                    pl={10}
+                  />
+                  <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" color={mutedTextColor}>
+                    <MapPin size={18} />
+                  </Box>
+                </InputGroup>
+              </FormControl>
+
+              <FormControl id="phone" isRequired>
+                <FormLabel color={textColor}>Phone</FormLabel>
+                <InputGroup>
+                  <Input
+                    type="text"
+                    placeholder="Enter your phone number"
+                    bg={inputBg}
+                    focusBorderColor="pink.400"
+                    color={textColor}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    borderRadius="lg"
+                    pl={10}
+                  />
+                  <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" color={mutedTextColor}>
+                    <Phone size={18} />
+                  </Box>
+                </InputGroup>
+              </FormControl>
+
+              <FormControl id="userName">
+                <FormLabel color={textColor}>Username (optional)</FormLabel>
+                <InputGroup>
+                  <Input
+                    type="text"
+                    placeholder="Choose a username"
+                    bg={inputBg}
+                    focusBorderColor="pink.400"
+                    color={textColor}
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    borderRadius="lg"
+                    pl={10}
+                  />
+                  <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" color={mutedTextColor}>
+                    <User size={18} />
+                  </Box>
+                </InputGroup>
+              </FormControl>
+            </SimpleGrid>
+
+            <MotionButton
+              type="submit"
+              colorScheme="pink"
+              width="full"
+              size="lg"
+              leftIcon={<UserPlus size={18} />}
+              isLoading={isLoading}
+              loadingText="Creating account..."
+              mt={4}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              Create Account
+            </MotionButton>
+
+            <Flex
+              w="full"
+              align="center"
+              justify="center"
+              fontSize="sm"
+              color={mutedTextColor}
+            >
+              <Text mr={1}>Already have an account?</Text>
+              <Link 
+                onClick={() => redirect("/login-external")} 
+                color={accentColor}
+                _hover={{ textDecoration: 'underline' }}
+                fontWeight="medium"
+              >
+                Sign In
+              </Link>
+            </Flex>
+          </VStack>
+        </Box>
+      </MotionBox>
+    </Flex>
+  )
+}
+
+export default RegisterUser

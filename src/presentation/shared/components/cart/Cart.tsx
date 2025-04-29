@@ -30,36 +30,18 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
   Tag,
+  Heading,
 } from "@chakra-ui/react"
-import { AddIcon, MinusIcon, DeleteIcon, createIcon } from "@chakra-ui/icons"
+import { Plus, Minus, Trash2, ShoppingBag, ShoppingCart } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import { useAppSelector, useAppDispatch } from "../../../../app/infrastructure/store/Hooks"
 import { selectCartItems, removeItemFromCart, updateItemQuantity } from "../../../../app/infrastructure/store/CartSlice"
-
-// << IMPORTA AQUÍ TU HOOK DE REDIRECCIÓN >>
 import useRedirect from "../../../shared/hooks/useRedirect"
 
-// Custom ShoppingCartIcon
-const ShoppingCartIcon = createIcon({
-  displayName: "ShoppingCartIcon",
-  viewBox: "0 0 24 24",
-  path: (
-    <>
-      <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2S15.9 22 17 22s2-.9 2-2-.9-2-2-2z" />
-      <path d="M7.16 14h9.68c.75 0 1.41-.41 1.75-1.03l3.38-6.15a1.002 1.002 0 00-.9-1.47H5.21l-.94-2H1v2h2l3.6 7.59-1.35 2.44C4.52 15.37 5.48 17 7 17h12v-2H7.16z" />
-    </>
-  ),
-})
-
-// Custom ShoppingBagIcon
-const ShoppingBagIcon = createIcon({
-  displayName: "ShoppingBagIcon",
-  viewBox: "0 0 24 24",
-  path: (
-    <>
-      <path d="M18 6h-2V4c0-1.1-.9-2-2-2H10C8.9 2 8 2.9 8 4v2H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h4V4h-4v2z" />
-    </>
-  ),
-})
+const MotionIconButton = motion(IconButton)
+const MotionBox = motion(Box)
+const MotionBadge = motion(Badge)
+const MotionFlex = motion(Flex)
 
 // Default images
 const DEFAULT_PRODUCT_IMAGE =
@@ -71,8 +53,6 @@ export default function CartIcon() {
   const cartItems = useAppSelector(selectCartItems)
   const dispatch = useAppDispatch()
   const toast = useToast()
-
-  // << Instancia de nuestra función de redirección >>
   const redirect = useRedirect()
 
   const { isOpen: isPopoverOpen, onOpen: onPopoverOpen, onClose: onPopoverClose } = useDisclosure()
@@ -82,15 +62,15 @@ export default function CartIcon() {
 
   // Colors
   const bgColor = useColorModeValue("white", "gray.800")
-  const borderColor = useColorModeValue("gray.200", "gray.700")
+  const borderColor = useColorModeValue("gray.100", "gray.700")
   const hoverBgColor = useColorModeValue("gray.50", "gray.700")
-  const accentColor = useColorModeValue("teal.500", "teal.300")
+  const accentColor = useColorModeValue("pink.500", "pink.300")
+  const secondaryColor = useColorModeValue("purple.500", "purple.300")
   const subtleColor = useColorModeValue("gray.100", "gray.700")
   const mutedTextColor = useColorModeValue("gray.600", "gray.400")
-  const badgeBgColor = useColorModeValue("red.500", "red.400")
-  const gradientStart = useColorModeValue("teal.50", "gray.700")
+  const badgeBgColor = useColorModeValue("pink.500", "pink.400")
+  const gradientStart = useColorModeValue("pink.50", "gray.700")
   const gradientEnd = useColorModeValue("purple.50", "gray.900")
-  const [teal500, purple500] = useColorModeValue(["teal.500", "purple.500"], ["teal.300", "purple.300"])
 
   // Calculate total items in cart
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0)
@@ -197,45 +177,41 @@ export default function CartIcon() {
       >
         <PopoverTrigger>
           <Box position="relative" display="inline-block">
-            <IconButton
+            <MotionIconButton
               aria-label="Shopping cart"
-              icon={<ShoppingCartIcon boxSize={5} />}
+              icon={<ShoppingCart size={18} />}
               variant="ghost"
               size="md"
-              position="relative"
-              _hover={{
-                bg: `${teal500}22`,
-                transform: "translateY(-2px)",
-              }}
-              transition="all 0.2s"
+              borderRadius="full"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              _hover={{ bg: useColorModeValue("pink.50", "whiteAlpha.100") }}
             />
-            {totalItems > 0 && (
-              <Badge
-                position="absolute"
-                top="-2px"
-                right="-2px"
-                borderRadius="full"
-                bg={badgeBgColor}
-                color="white"
-                fontSize="0.8em"
-                fontWeight="bold"
-                minW="1.6em"
-                h="1.6em"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                animation="pulse 1.5s infinite"
-                sx={{
-                  "@keyframes pulse": {
-                    "0%": { transform: "scale(1)" },
-                    "50%": { transform: "scale(1.1)" },
-                    "100%": { transform: "scale(1)" },
-                  },
-                }}
-              >
-                {totalItems}
-              </Badge>
-            )}
+            <AnimatePresence>
+              {totalItems > 0 && (
+                <MotionBadge
+                  position="absolute"
+                  top="-2px"
+                  right="-2px"
+                  borderRadius="full"
+                  bg={badgeBgColor}
+                  color="white"
+                  fontSize="0.8em"
+                  fontWeight="bold"
+                  minW="1.6em"
+                  h="1.6em"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                >
+                  {totalItems}
+                </MotionBadge>
+              )}
+            </AnimatePresence>
           </Box>
         </PopoverTrigger>
         <Portal>
@@ -254,25 +230,36 @@ export default function CartIcon() {
               fontWeight="bold"
               borderBottomWidth="1px"
               p={4}
-              bg={`linear-gradient(90deg, ${teal500}22 0%, ${purple500}22 100%)`}
+              bg={`linear-gradient(90deg, ${accentColor}22 0%, ${secondaryColor}22 100%)`}
             >
               <Flex align="center" justify="space-between">
                 <HStack>
-                  <Box borderRadius="md" p={1.5} bg={`${teal500}22`} color={accentColor}>
-                    <ShoppingBagIcon boxSize={5} />
-                  </Box>
-                  <Text fontWeight="extrabold" bgGradient={`linear(to-r, ${teal500}, ${purple500})`} bgClip="text">
+                  <MotionBox
+                    borderRadius="md"
+                    p={1.5}
+                    bg={`${accentColor}22`}
+                    color={accentColor}
+                    whileHover={{ rotate: [0, -10, 10, -10, 0] }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <ShoppingBag size={18} />
+                  </MotionBox>
+                  <Text
+                    fontWeight="extrabold"
+                    bgGradient={`linear(to-r, ${accentColor}, ${secondaryColor})`}
+                    bgClip="text"
+                  >
                     Your Cart
                   </Text>
                 </HStack>
-                <Badge colorScheme="teal" borderRadius="full" px={2} py={1} fontSize="xs" fontWeight="bold">
+                <Badge colorScheme="pink" borderRadius="full" px={2} py={1} fontSize="xs" fontWeight="bold">
                   {totalItems} {totalItems === 1 ? "item" : "items"}
                 </Badge>
               </Flex>
             </PopoverHeader>
             <PopoverBody p={0} maxH="350px" overflowY="auto">
               {cartItems.length === 0 ? (
-                <Flex
+                <MotionFlex
                   direction="column"
                   align="center"
                   justify="center"
@@ -280,20 +267,38 @@ export default function CartIcon() {
                   px={4}
                   textAlign="center"
                   bg={`linear-gradient(180deg, ${gradientStart} 0%, ${bgColor} 100%)`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  <Box bg={`${teal500}22`} p={4} borderRadius="full" mb={4} color={accentColor}>
-                    <ShoppingCartIcon boxSize={8} />
-                  </Box>
-                  <Text fontWeight="bold" mb={1} fontSize="lg">
+                  <MotionBox
+                    bg={`${accentColor}22`}
+                    p={4}
+                    borderRadius="full"
+                    mb={4}
+                    color={accentColor}
+                    animate={{
+                      scale: [1, 1.1, 1],
+                      rotate: [0, 5, 0, -5, 0],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Number.POSITIVE_INFINITY,
+                      repeatType: "loop",
+                    }}
+                  >
+                    <ShoppingCart size={24} />
+                  </MotionBox>
+                  <Heading size="sm" mb={1}>
                     Your cart is empty
-                  </Text>
+                  </Heading>
                   <Text fontSize="sm" color={mutedTextColor} maxW="250px">
                     Add some delicious items from our menu to get started!
                   </Text>
                   <Button
                     mt={6}
                     size="sm"
-                    colorScheme="teal"
+                    colorScheme="pink"
                     onClick={onPopoverClose}
                     _hover={{
                       transform: "translateY(-2px)",
@@ -303,133 +308,140 @@ export default function CartIcon() {
                   >
                     Browse Menu
                   </Button>
-                </Flex>
+                </MotionFlex>
               ) : (
                 <VStack spacing={0} align="stretch" divider={<Divider />}>
-                  {cartItems.map((item) => (
-                    <Flex
-                      key={item.id}
-                      p={3}
-                      align="center"
-                      transition="all 0.2s"
-                      _hover={{
-                        bg: hoverBgColor,
-                        transform: "translateX(3px)",
-                      }}
-                      position="relative"
-                      overflow="hidden"
-                    >
-                      {/* Background indicator for item type */}
-                      <Box
-                        position="absolute"
-                        left={0}
-                        top="50%"
-                        transform="translateY(-50%)"
-                        width="3px"
-                        height="60%"
-                        bg={item.type === "product" ? teal500 : purple500}
-                        borderRightRadius="full"
-                      />
+                  <AnimatePresence>
+                    {cartItems.map((item) => (
+                      <MotionFlex
+                        key={item.id}
+                        p={3}
+                        align="center"
+                        _hover={{
+                          bg: hoverBgColor,
+                        }}
+                        position="relative"
+                        overflow="hidden"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                      >
+                        {/* Background indicator for item type */}
+                        <Box
+                          position="absolute"
+                          left={0}
+                          top="50%"
+                          transform="translateY(-50%)"
+                          width="3px"
+                          height="60%"
+                          bg={item.type === "product" ? accentColor : secondaryColor}
+                          borderRightRadius="full"
+                        />
 
-                      <Image
-                        src={getItemImage(item) || "/placeholder.svg"}
-                        alt={getItemName(item)}
-                        boxSize="55px"
-                        objectFit="cover"
-                        borderRadius="lg"
-                        mr={3}
-                        ml={1}
-                        fallbackSrc="/placeholder.svg?height=55&width=55"
-                        shadow="sm"
-                      />
-                      <Box flex="1" minW={0}>
-                        <Flex justify="space-between" align="center">
-                          <Text fontWeight="semibold" fontSize="sm" noOfLines={1}>
-                            {getItemName(item)}
-                          </Text>
-                          <Tag
-                            size="sm"
-                            colorScheme={item.type === "product" ? "teal" : "purple"}
-                            borderRadius="full"
-                            fontSize="xs"
-                          >
-                            {item.type === "product" ? "Product" : "Kit"}
-                          </Tag>
-                        </Flex>
-
-                        <Text fontSize="xs" color={mutedTextColor} noOfLines={1} mb={1} mt={0.5}>
-                          {getItemDescription(item).substring(0, 40)}
-                          {getItemDescription(item).length > 40 ? "..." : ""}
-                        </Text>
-
-                        <Flex align="center" justify="space-between">
-                          <Text fontWeight="bold" color={item.type === "product" ? teal500 : purple500} fontSize="sm">
-                            ${(getItemPrice(item) * item.quantity).toFixed(2)}
-                          </Text>
-                          <HStack spacing={1}>
-                            <Tooltip label="Decrease quantity">
-                              <IconButton
-                                aria-label="Decrease quantity"
-                                icon={<MinusIcon boxSize={2.5} />}
-                                size="xs"
-                                variant="ghost"
-                                colorScheme="gray"
-                                onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                                borderRadius="full"
-                                _hover={{
-                                  bg: `${teal500}22`,
-                                }}
-                              />
-                            </Tooltip>
-                            <Box
-                              fontSize="xs"
-                              fontWeight="bold"
-                              minW="22px"
-                              textAlign="center"
-                              bg={subtleColor}
+                        <Image
+                          src={getItemImage(item) || "/placeholder.svg"}
+                          alt={getItemName(item)}
+                          boxSize="55px"
+                          objectFit="cover"
+                          borderRadius="lg"
+                          mr={3}
+                          ml={1}
+                          fallbackSrc="/placeholder.svg?height=55&width=55"
+                          shadow="sm"
+                        />
+                        <Box flex="1" minW={0}>
+                          <Flex justify="space-between" align="center">
+                            <Text fontWeight="semibold" fontSize="sm" noOfLines={1}>
+                              {getItemName(item)}
+                            </Text>
+                            <Tag
+                              size="sm"
+                              colorScheme={item.type === "product" ? "pink" : "purple"}
                               borderRadius="full"
-                              px={1.5}
-                              py={0.5}
+                              fontSize="xs"
                             >
-                              {item.quantity}
-                            </Box>
-                            <Tooltip label="Increase quantity">
-                              <IconButton
-                                aria-label="Increase quantity"
-                                icon={<AddIcon boxSize={2.5} />}
-                                size="xs"
-                                variant="ghost"
-                                colorScheme="teal"
-                                onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                              {item.type === "product" ? "Product" : "Kit"}
+                            </Tag>
+                          </Flex>
+
+                          <Text fontSize="xs" color={mutedTextColor} noOfLines={1} mb={1} mt={0.5}>
+                            {getItemDescription(item).substring(0, 40)}
+                            {getItemDescription(item).length > 40 ? "..." : ""}
+                          </Text>
+
+                          <Flex align="center" justify="space-between">
+                            <Text
+                              fontWeight="bold"
+                              color={item.type === "product" ? accentColor : secondaryColor}
+                              fontSize="sm"
+                            >
+                              ${(getItemPrice(item) * item.quantity).toFixed(2)}
+                            </Text>
+                            <HStack spacing={1}>
+                              <Tooltip label="Decrease quantity">
+                                <IconButton
+                                  aria-label="Decrease quantity"
+                                  icon={<Minus size={12} />}
+                                  size="xs"
+                                  variant="ghost"
+                                  colorScheme="gray"
+                                  onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                                  borderRadius="full"
+                                  _hover={{
+                                    bg: `${accentColor}22`,
+                                  }}
+                                />
+                              </Tooltip>
+                              <Box
+                                fontSize="xs"
+                                fontWeight="bold"
+                                minW="22px"
+                                textAlign="center"
+                                bg={subtleColor}
                                 borderRadius="full"
-                                _hover={{
-                                  bg: `${teal500}22`,
-                                }}
-                              />
-                            </Tooltip>
-                            <Tooltip label="Remove item">
-                              <IconButton
-                                aria-label="Remove item"
-                                icon={<DeleteIcon boxSize={2.5} />}
-                                size="xs"
-                                variant="ghost"
-                                colorScheme="red"
-                                onClick={() => {
-                                  setItemToDelete(item.id)
-                                  onAlertOpen()
-                                }}
-                                borderRadius="full"
-                                ml={1}
-                                _hover={{
-                                  bg: "red.50",
-                                }}
-                              />
-                            </Tooltip>
-                          </HStack>
-                        </Flex>
-                      </Box>
-                    </Flex>
-                  ))}
+                                px={1.5}
+                                py={0.5}
+                              >
+                                {item.quantity}
+                              </Box>
+                              <Tooltip label="Increase quantity">
+                                <IconButton
+                                  aria-label="Increase quantity"
+                                  icon={<Plus size={12} />}
+                                  size="xs"
+                                  variant="ghost"
+                                  colorScheme="pink"
+                                  onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                                  borderRadius="full"
+                                  _hover={{
+                                    bg: `${accentColor}22`,
+                                  }}
+                                />
+                              </Tooltip>
+                              <Tooltip label="Remove item">
+                                <IconButton
+                                  aria-label="Remove item"
+                                  icon={<Trash2 size={12} />}
+                                  size="xs"
+                                  variant="ghost"
+                                  colorScheme="red"
+                                  onClick={() => {
+                                    setItemToDelete(item.id)
+                                    onAlertOpen()
+                                  }}
+                                  borderRadius="full"
+                                  ml={1}
+                                  _hover={{
+                                    bg: "red.50",
+                                  }}
+                                />
+                              </Tooltip>
+                            </HStack>
+                          </Flex>
+                        </Box>
+                      </MotionFlex>
+                    ))}
+                  </AnimatePresence>
                 </VStack>
               )}
             </PopoverBody>
@@ -443,7 +455,7 @@ export default function CartIcon() {
                   <Text>Subtotal:</Text>
                   <Text
                     fontWeight="extrabold"
-                    bgGradient={`linear(to-r, ${teal500}, ${purple500})`}
+                    bgGradient={`linear(to-r, ${accentColor}, ${secondaryColor})`}
                     bgClip="text"
                     fontSize="lg"
                   >
@@ -451,9 +463,8 @@ export default function CartIcon() {
                   </Text>
                 </Flex>
 
-                {/* << AQUÍ el onClick que redirige >> */}
                 <Button
-                  colorScheme="teal"
+                  colorScheme="pink"
                   size="md"
                   width="full"
                   isDisabled={cartItems.length === 0}
@@ -465,7 +476,6 @@ export default function CartIcon() {
                       duration: 1500,
                       isClosable: true,
                     })
-                    // Al cerrar el popover, redirige a /user/checkout
                     redirect("/user/checkout")
                   }}
                   _hover={{
@@ -496,21 +506,19 @@ export default function CartIcon() {
             <AlertDialogHeader
               fontSize="lg"
               fontWeight="bold"
-              bg={`linear-gradient(90deg, ${teal500}11 0%, ${purple500}11 100%)`}
+              bg={`linear-gradient(90deg, ${accentColor}11 0%, ${secondaryColor}11 100%)`}
               borderTopRadius="xl"
               pb={3}
             >
               <Flex align="center">
                 <Box borderRadius="md" p={1.5} bg="red.50" color="red.500" mr={2}>
-                  <DeleteIcon boxSize={4} />
+                  <Trash2 size={16} />
                 </Box>
                 Remove Item
               </Flex>
             </AlertDialogHeader>
 
-            <AlertDialogBody py={6}>
-              Are you sure you want to remove this item from your cart?
-            </AlertDialogBody>
+            <AlertDialogBody py={6}>Are you sure you want to remove this item from your cart?</AlertDialogBody>
 
             <AlertDialogFooter borderTopWidth="1px" borderColor={borderColor}>
               <Button
