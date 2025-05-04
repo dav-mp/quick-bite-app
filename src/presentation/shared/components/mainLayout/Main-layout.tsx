@@ -1,9 +1,10 @@
 "use client"
 
-import { Box, useDisclosure } from "@chakra-ui/react"
+import { Box, useDisclosure, useColorMode } from "@chakra-ui/react"
 import { Outlet } from "react-router-dom"
 import Navbar from "./Navbar"
 import { motion } from "framer-motion"
+import OrderNotificationToast from "../notifications/Order-notification-toast"
 
 const MotionBox = motion(Box)
 
@@ -20,6 +21,9 @@ export default function MainLayout() {
         "radial-gradient(at 100% 0%, rgba(255, 105, 180, 0.15) 0px, transparent 50%), radial-gradient(at 0% 100%, rgba(111, 66, 193, 0.15) 0px, transparent 50%)",
       )}
     >
+      {/* Componente de notificaciones */}
+      <OrderNotificationToast />
+
       {/* Top Navbar */}
       <Navbar onMobileMenuOpen={onOpen} />
 
@@ -43,6 +47,3 @@ export default function MainLayout() {
 function useColorModeValue(light: string, dark: string) {
   return { light, dark }[useColorMode().colorMode] || light
 }
-
-// Add this at the top
-import { useColorMode } from "@chakra-ui/react"

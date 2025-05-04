@@ -42,6 +42,7 @@ import {
   InputGroup,
   InputLeftElement,
   Input,
+  Tooltip,
 } from "@chakra-ui/react"
 import { motion } from "framer-motion"
 import {
@@ -57,13 +58,19 @@ import {
   XCircle,
   Filter,
   ArrowUpDown,
+  Bell,
+  RefreshCw,
 } from "lucide-react"
 import { orderUseCase } from "../../../../app/infrastructure/DI/OrderContainer"
 import { getJWTDataDecoded } from "../../../../app/infrastructure/service/JWTDecoded"
 import { type TransformedOrder, StatusOrder } from "../../../../app/domain/models/oreder/Order"
+import { webSocketService } from "../../../../app/infrastructure/service/WebSocketService"
+import { useAppDispatch, useAppSelector } from "../../../../app/infrastructure/store/Hooks"
+import { markOrderAsViewed, selectUpdatedOrderIds } from "../../../../app/infrastructure/store/NotificationSlice"
 
 const MotionCard = motion(Card)
 const MotionBox = motion(Box)
+const MotionBadge = motion(Badge)
 
 // Default images
 const DEFAULT_PRODUCT_IMAGE =
@@ -80,6 +87,12 @@ export default function OrdersView() {
   const [sortNewest, setSortNewest] = useState(true)
   const { isOpen, onOpen, onClose } = useDisclosure()
 
+  // Notifications state from Redux
+  const dispatch = useAppDispatch()
+  const [updatesAvailable, setUpdatesAvailable] = useState(false)
+  // Get all updated order IDs at once instead of checking individually
+  const updatedOrderIds = useAppSelector(selectUpdatedOrderIds)
+
   // Colors
   const accentColor = useColorModeValue("pink.500", "pink.300")
   const secondaryColor = useColorModeValue("purple.500", "purple.300")
@@ -88,15 +101,37 @@ export default function OrdersView() {
   const borderColor = useColorModeValue("gray.200", "gray.700")
   const gradientStart = useColorModeValue("pink.50", "gray.700")
   const gradientEnd = useColorModeValue("purple.50", "gray.900")
+  const updateBgColor = useColorModeValue("pink.50", "pink.900")
+  const updateBorderColor = useColorModeValue("pink.200", "pink.700")
 
   useEffect(() => {
     fetchOrders()
+
+    // Configurar el WebSocket
+    const customer = getJWTDataDecoded<Record<string, any>>()
+    if (customer && customer.sub) {
+      webSocketService.registerClient("user", customer.sub)
+
+      // Listener para actualizar órdenes cuando lleguen notificaciones
+      const handleOrderUpdate = (data: any) => {
+        if (data.type === "orderStatusUpdate") {
+          setUpdatesAvailable(true)
+        }
+      }
+
+      webSocketService.addMessageListener(handleOrderUpdate)
+
+      return () => {
+        webSocketService.removeMessageListener(handleOrderUpdate)
+      }
+    }
   }, [])
 
   const fetchOrders = async () => {
     try {
       setLoading(true)
       setError(null)
+      setUpdatesAvailable(false)
 
       // Get customer ID from JWT
       const customer = getJWTDataDecoded<Record<string, any>>()
@@ -105,8 +140,6 @@ export default function OrdersView() {
       const fetchedOrders = await orderUseCase.getAllOrdersByCustomerId({
         customerId: customer.sub,
       })
-      console.log(fetchedOrders);
-      
 
       setOrders(fetchedOrders)
     } catch (err: any) {
@@ -119,6 +152,12 @@ export default function OrdersView() {
 
   const handleViewOrderDetails = (order: TransformedOrder) => {
     setSelectedOrder(order)
+
+    // Marcar la orden como vista si tenía actualizaciones
+    if (updatedOrderIds.includes(order.id)) {
+      dispatch(markOrderAsViewed(order.id))
+    }
+
     onOpen()
   }
 
@@ -230,6 +269,20 @@ export default function OrdersView() {
         </InputGroup>
 
         <HStack>
+          {updatesAvailable && (
+            <Tooltip label="New updates available">
+              <Button
+                leftIcon={<RefreshCw size={16} />}
+                colorScheme="pink"
+                size="sm"
+                borderRadius="full"
+                onClick={fetchOrders}
+                _hover={{ transform: "rotate(180deg)", transition: "transform 0.5s" }}
+              >
+                Updates Available
+              </Button>
+            </Tooltip>
+          )}
           <Button
             leftIcon={<Filter size={16} />}
             variant="ghost"
@@ -321,129 +374,160 @@ export default function OrdersView() {
       {/* Orders List */}
       {!loading && !error && filteredAndSortedOrders.length > 0 && (
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-          {filteredAndSortedOrders.map((order, index) => (
-            <MotionCard
-              key={order.id}
-              borderRadius="xl"
-              overflow="hidden"
-              boxShadow="md"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-              whileHover={{ y: -5, boxShadow: "lg" }}
-              cursor="pointer"
-              onClick={() => handleViewOrderDetails(order)}
-            >
-              <CardHeader
-                bg={`linear-gradient(90deg, ${accentColor}11 0%, ${secondaryColor}11 100%)`}
-                borderBottom="1px solid"
-                borderColor={borderColor}
-                pb={3}
+          {filteredAndSortedOrders.map((order, index) => {
+            // Check if this order has updates directly from the array
+            const hasOrderUpdates = updatedOrderIds.includes(order.id)
+
+            return (
+              <MotionCard
+                key={order.id}
+                borderRadius="xl"
+                overflow="hidden"
+                boxShadow={hasOrderUpdates ? "lg" : "md"}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                whileHover={{ y: -5, boxShadow: "lg" }}
+                cursor="pointer"
+                onClick={() => handleViewOrderDetails(order)}
+                borderWidth={hasOrderUpdates ? "2px" : "1px"}
+                borderColor={hasOrderUpdates ? updateBorderColor : borderColor}
+                bg={hasOrderUpdates ? updateBgColor : undefined}
+                position="relative"
               >
-                <Flex justify="space-between" align="center">
-                  <HStack>
-                    <Avatar
-                      size="sm"
-                      name={order.Restaurant?.name}
-                      src={order.Restaurant?.image || DEFAULT_RESTAURANT_IMAGE}
-                    />
-                    <Box>
-                      <Text fontWeight="bold" fontSize="sm" noOfLines={1}>
-                        {order.Restaurant?.name || "Restaurant"}
-                      </Text>
-                      <Text fontSize="xs" color={mutedTextColor}>
-                        Order #{order.id.substring(0, 8).toUpperCase()}
-                      </Text>
-                    </Box>
-                  </HStack>
-                  <Badge
-                    colorScheme={getStatusColor(order.status)}
+                {hasOrderUpdates && (
+                  <MotionBadge
+                    position="absolute"
+                    top={3}
+                    right={3}
+                    colorScheme="pink"
                     borderRadius="full"
                     px={2}
                     py={1}
+                    zIndex={1}
                     display="flex"
                     alignItems="center"
                     gap={1}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
                   >
-                    {getStatusIcon(order.status)}
-                    <Text>{order.status}</Text>
-                  </Badge>
-                </Flex>
-              </CardHeader>
+                    <Bell size={12} />
+                    <Text fontSize="xs">Updated</Text>
+                  </MotionBadge>
+                )}
 
-              <CardBody py={4}>
-                <VStack align="stretch" spacing={3}>
-                  <HStack>
-                    <Box
-                      borderRadius="full"
-                      bg={`${accentColor}22`}
-                      p={1.5}
-                      color={accentColor}
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                    >
-                      <Calendar size={14} />
-                    </Box>
-                    <Text fontSize="sm">{formatDate(order.createdAt)}</Text>
-                  </HStack>
-
-                  <HStack>
-                    <Box
-                      borderRadius="full"
-                      bg={`${secondaryColor}22`}
-                      p={1.5}
-                      color={secondaryColor}
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                    >
-                      <MapPin size={14} />
-                    </Box>
-                    <Text fontSize="sm" noOfLines={1}>
-                      {order.Restaurant?.address || "Address not available"}
-                    </Text>
-                  </HStack>
-
-                  <Box bg={subtleColor} p={3} borderRadius="md">
-                    <Text fontSize="xs" color={mutedTextColor} mb={2}>
-                      Order Summary
-                    </Text>
-                    <Text fontSize="sm" fontWeight="medium" mb={1}>
-                      {order.OrderDetail.singleProducts.length + order.OrderDetail.kits.length} items
-                    </Text>
-                    <Flex justify="space-between" align="center">
-                      <Text fontSize="sm" color={mutedTextColor}>
-                        Total
-                      </Text>
-                      <Text fontWeight="bold" color={accentColor}>
-                        ${order.totalPrice.toFixed(2)}
-                      </Text>
-                    </Flex>
-                  </Box>
-                </VStack>
-              </CardBody>
-
-              <CardFooter
-                pt={0}
-                pb={3}
-                px={4}
-                borderTop="1px solid"
-                borderColor={borderColor}
-                justifyContent="flex-end"
-              >
-                <Button
-                  rightIcon={<ChevronRight size={16} />}
-                  variant="ghost"
-                  size="sm"
-                  color={accentColor}
-                  _hover={{ bg: `${accentColor}22` }}
+                <CardHeader
+                  bg={`linear-gradient(90deg, ${accentColor}11 0%, ${secondaryColor}11 100%)`}
+                  borderBottom="1px solid"
+                  borderColor={borderColor}
+                  pb={3}
                 >
-                  View Details
-                </Button>
-              </CardFooter>
-            </MotionCard>
-          ))}
+                  <Flex justify="space-between" align="center">
+                    <HStack>
+                      <Avatar
+                        size="sm"
+                        name={order.Restaurant?.name}
+                        src={order.Restaurant?.image || DEFAULT_RESTAURANT_IMAGE}
+                      />
+                      <Box>
+                        <Text fontWeight="bold" fontSize="sm" noOfLines={1}>
+                          {order.Restaurant?.name || "Restaurant"}
+                        </Text>
+                        <Text fontSize="xs" color={mutedTextColor}>
+                          Order #{order.id.substring(0, 8).toUpperCase()}
+                        </Text>
+                      </Box>
+                    </HStack>
+                    <Badge
+                      colorScheme={getStatusColor(order.status)}
+                      borderRadius="full"
+                      px={2}
+                      py={1}
+                      display="flex"
+                      alignItems="center"
+                      gap={1}
+                    >
+                      {getStatusIcon(order.status)}
+                      <Text>{order.status}</Text>
+                    </Badge>
+                  </Flex>
+                </CardHeader>
+
+                <CardBody py={4}>
+                  <VStack align="stretch" spacing={3}>
+                    <HStack>
+                      <Box
+                        borderRadius="full"
+                        bg={`${accentColor}22`}
+                        p={1.5}
+                        color={accentColor}
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        <Calendar size={14} />
+                      </Box>
+                      <Text fontSize="sm">{formatDate(order.createdAt)}</Text>
+                    </HStack>
+
+                    <HStack>
+                      <Box
+                        borderRadius="full"
+                        bg={`${secondaryColor}22`}
+                        p={1.5}
+                        color={secondaryColor}
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        <MapPin size={14} />
+                      </Box>
+                      <Text fontSize="sm" noOfLines={1}>
+                        {order.Restaurant?.address || "Address not available"}
+                      </Text>
+                    </HStack>
+
+                    <Box bg={subtleColor} p={3} borderRadius="md">
+                      <Text fontSize="xs" color={mutedTextColor} mb={2}>
+                        Order Summary
+                      </Text>
+                      <Text fontSize="sm" fontWeight="medium" mb={1}>
+                        {order.OrderDetail.singleProducts.length + order.OrderDetail.kits.length} items
+                      </Text>
+                      <Flex justify="space-between" align="center">
+                        <Text fontSize="sm" color={mutedTextColor}>
+                          Total
+                        </Text>
+                        <Text fontWeight="bold" color={accentColor}>
+                          ${order.totalPrice.toFixed(2)}
+                        </Text>
+                      </Flex>
+                    </Box>
+                  </VStack>
+                </CardBody>
+
+                <CardFooter
+                  pt={0}
+                  pb={3}
+                  px={4}
+                  borderTop="1px solid"
+                  borderColor={borderColor}
+                  justifyContent="flex-end"
+                >
+                  <Button
+                    rightIcon={<ChevronRight size={16} />}
+                    variant="ghost"
+                    size="sm"
+                    color={accentColor}
+                    _hover={{ bg: `${accentColor}22` }}
+                  >
+                    View Details
+                  </Button>
+                </CardFooter>
+              </MotionCard>
+            )
+          })}
         </SimpleGrid>
       )}
 
