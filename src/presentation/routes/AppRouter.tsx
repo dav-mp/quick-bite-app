@@ -5,6 +5,7 @@ import RegisterUser from "../users/pages/auth/register/RegisterView";
 import { ProtectedRoute } from "./ProtectedRoute";
 import ExternalRoutes from "../users/routes/UserRouter";
 import MainLayout from "../shared/components/mainLayout/Main-layout";
+import LoginRestaurant from "../restaurants/pages/auth/login/LoginRestaurantView";
 
 export const AppRouter = () => {
   return (
@@ -13,6 +14,7 @@ export const AppRouter = () => {
         {/* Rutas de login y registro (globales) */}
         <Route path="/login-external" element={<LoginUser />} />
         <Route path="/register" element={<RegisterUser />} />
+        <Route path="/login-restaurant" element={<LoginRestaurant />} />
 
         {/*
           Rutas protegidas para usuarios externos.

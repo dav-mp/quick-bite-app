@@ -134,14 +134,6 @@ export default function Navbar({ onMobileMenuOpen }: NavbarProps) {
             >
               Orders
             </Button>
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/user/favorites")}
-              _hover={{ bg: "pink.50", color: "pink.500" }}
-              fontWeight="medium"
-            >
-              Favorites
-            </Button>
           </HStack>
 
           {/* Right Icons */}
