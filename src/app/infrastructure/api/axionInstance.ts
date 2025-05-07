@@ -3,8 +3,8 @@ import { getDataCookies } from "../service/CookiesService";
 import { DataCookies } from "../../domain/models/cookies/DataCookies";
 
 export const axiosInstance = axios.create({
-    // baseURL: "https://quickbite-apigateway.onrender.com", // Aquí pondrías tu endpoint real
-    baseURL: "http://localhost:3000", // Aquí pondrías tu endpoint real
+    // baseURL: 'https://t2orimport.meta.env.xjhjd3.execute-api.us-east-1.amazonaws.com', // Aquí pondrías tu endpoint real
+    baseURL: import.meta.env.API, // Aquí pondrías tu endpoint real
 });
   
 
