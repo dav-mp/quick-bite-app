@@ -24,7 +24,6 @@ import {
   Tab,
   TabPanels,
   TabPanel,
-  useToast,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -90,7 +89,6 @@ export default function RestaurantProducts() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [sortAlphabetical, setSortAlphabetical] = useState(true)
-  const toast = useToast()
 
   // For product/kit edit modal
   const { isOpen, onOpen, onClose } = useDisclosure()

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import {
   Box,
   Container,
@@ -41,6 +41,22 @@ import {
   InputGroup,
   InputLeftElement,
   Input,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Grid,
+  GridItem,
+  Image,
 } from "@chakra-ui/react"
 import { motion } from "framer-motion"
 import {
@@ -55,6 +71,12 @@ import {
   Filter,
   ArrowUpDown,
   RefreshCw,
+  User,
+  MapPin,
+  Phone,
+  DollarSign,
+  Package,
+  Printer,
 } from "lucide-react"
 import { orderUseCase } from "../../../../app/infrastructure/DI/OrderContainer"
 import { getJWTDataDecoded } from "../../../../app/infrastructure/service/JWTDecoded"
@@ -62,6 +84,8 @@ import {
   type TransformedOrder,
   StatusOrder,
   type ChangeStatusOrderRequest,
+  type SingleProductDetail,
+  type KitDetail,
 } from "../../../../app/domain/models/oreder/Order"
 import { webSocketService } from "../../../../app/infrastructure/service/WebSocketService"
 
@@ -71,6 +95,18 @@ const MotionBox = motion(Box)
 // Default images
 const DEFAULT_PRODUCT_IMAGE =
   "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60"
+
+// Update the formatDate function to handle orderDate instead of createdAt when needed
+const formatOrderDate = (dateString: string | number) => {
+  const date = typeof dateString === "number" ? new Date(dateString * 1000) : new Date(dateString)
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
 
 export default function RestaurantDashboard() {
   const [activeOrders, setActiveOrders] = useState<TransformedOrder[]>([])
@@ -87,9 +123,46 @@ export default function RestaurantDashboard() {
   const toast = useToast()
 
   // For status change confirmation
-  const { isOpen, onOpen, onClose } = useDisclosure()
+  const { isOpen: isStatusDialogOpen, onOpen: onStatusDialogOpen, onClose: onStatusDialogClose } = useDisclosure()
   const cancelRef = useRef<HTMLButtonElement>(null)
   const [newStatus, setNewStatus] = useState<StatusOrder | null>(null)
+
+  // For order details modal
+  const { isOpen: isDetailsModalOpen, onOpen: onDetailsModalOpen, onClose: onDetailsModalClose } = useDisclosure()
+
+  const handleWebSocketMessage = useCallback(
+    (data: any) => {
+      console.log("WebSocket message received in dashboard:", data)
+
+      // Handle order_created event (new format)
+      if (data.event === "order_created" && data.order) {
+        // Set updates available flag to show refresh button
+        setUpdatesAvailable(true)
+
+        // Automatically fetch new orders
+        fetchOrders()
+      }
+      // Handle new_order event (original format)
+      else if (data.event === "new_order" && data.order) {
+        // Set updates available flag to show refresh button
+        setUpdatesAvailable(true)
+
+        // Automatically fetch new orders
+        fetchOrders()
+      }
+      // Handle order_status_changed event
+      else if (data.event === "order_status_changed" && data.order) {
+        // Set updates available flag to show refresh button
+        setUpdatesAvailable(true)
+
+        // Automatically fetch new orders
+        fetchOrders()
+      }
+    },
+    [
+      /* fetchOrders would normally be a dependency here, but it's defined in the component */
+    ],
+  )
 
   // Colors
   const accentColor = useColorModeValue("teal.500", "teal.300")
@@ -103,37 +176,17 @@ export default function RestaurantDashboard() {
   useEffect(() => {
     fetchOrders()
 
-    // Setup WebSocket
+    // Setup WebSocket listener
     const restaurant = getJWTDataDecoded<Record<string, any>>()
     if (restaurant && restaurant.id) {
-      webSocketService.registerClient("restaurant", restaurant.id)
-
-      // Listener for order updates
-      const handleOrderUpdate = (data: any) => {
-        if (data.event === "new_order" || data.event === "order_status_changed") {
-          setUpdatesAvailable(true)
-
-          // Show toast notification
-          toast({
-            title: data.event === "new_order" ? "New Order Received!" : "Order Updated",
-            description: `Order #${data.order?.id.substring(0, 8).toUpperCase() || "Unknown"} ${
-              data.event === "new_order" ? "has been placed" : "status has changed"
-            }`,
-            status: "info",
-            duration: 5000,
-            isClosable: true,
-            position: "top-right",
-          })
-        }
-      }
-
-      webSocketService.addMessageListener(handleOrderUpdate)
-
-      return () => {
-        webSocketService.removeMessageListener(handleOrderUpdate)
-      }
+      webSocketService.addMessageListener(handleWebSocketMessage)
     }
-  }, [toast])
+
+    // Cleanup
+    return () => {
+      webSocketService.removeMessageListener(handleWebSocketMessage)
+    }
+  }, [handleWebSocketMessage])
 
   const fetchOrders = async () => {
     try {
@@ -143,8 +196,6 @@ export default function RestaurantDashboard() {
 
       // Get restaurant ID from JWT
       const restaurant = getJWTDataDecoded<Record<string, any>>()
-      console.log(restaurant);
-      
 
       // Fetch active orders
       const activeOrdersData = await orderUseCase.getActiveOrders({
@@ -156,6 +207,8 @@ export default function RestaurantDashboard() {
       const allOrdersData = await orderUseCase.getAllOrdersRestaurant({
         restaurantId: restaurant.id,
       })
+      console.log(allOrdersData)
+
       setAllOrders(allOrdersData)
     } catch (err: any) {
       console.error("Error fetching orders:", err)
@@ -198,7 +251,7 @@ export default function RestaurantDashboard() {
         isClosable: true,
       })
     } finally {
-      onClose()
+      onStatusDialogClose()
       setNewStatus(null)
       setSelectedOrder(null)
     }
@@ -207,7 +260,12 @@ export default function RestaurantDashboard() {
   const confirmStatusChange = (order: TransformedOrder, status: StatusOrder) => {
     setSelectedOrder(order)
     setNewStatus(status)
-    onOpen()
+    onStatusDialogOpen()
+  }
+
+  const openOrderDetails = (order: TransformedOrder) => {
+    setSelectedOrder(order)
+    onDetailsModalOpen()
   }
 
   const getStatusColor = (status: StatusOrder) => {
@@ -279,6 +337,20 @@ export default function RestaurantDashboard() {
     (order) => new Date(order.createdAt).toDateString() === new Date().toDateString(),
   )
   const todaySales = todayOrders.reduce((sum, order) => sum + order.totalPrice, 0)
+
+  // Print order receipt
+  const printOrderReceipt = () => {
+    if (!selectedOrder) return
+
+    // In a real implementation, this would format and print the receipt
+    toast({
+      title: "Printing Receipt",
+      description: `Printing receipt for order #${selectedOrder.id.substring(0, 8).toUpperCase()}`,
+      status: "info",
+      duration: 3000,
+      isClosable: true,
+    })
+  }
 
   return (
     <Container maxW="container.xl" py={6}>
@@ -605,6 +677,7 @@ export default function RestaurantDashboard() {
                         size="sm"
                         color={accentColor}
                         _hover={{ bg: `${accentColor}22` }}
+                        onClick={() => openOrderDetails(order)}
                       >
                         View Details
                       </Button>
@@ -751,6 +824,7 @@ export default function RestaurantDashboard() {
                         size="sm"
                         color={accentColor}
                         _hover={{ bg: `${accentColor}22` }}
+                        onClick={() => openOrderDetails(order)}
                       >
                         View Details
                       </Button>
@@ -764,7 +838,7 @@ export default function RestaurantDashboard() {
       </Tabs>
 
       {/* Status Change Confirmation Dialog */}
-      <AlertDialog isOpen={isOpen} leastDestructiveRef={cancelRef} onClose={onClose}>
+      <AlertDialog isOpen={isStatusDialogOpen} leastDestructiveRef={cancelRef} onClose={onStatusDialogClose}>
         <AlertDialogOverlay>
           <AlertDialogContent borderRadius="lg">
             <AlertDialogHeader fontSize="lg" fontWeight="bold">
@@ -777,7 +851,7 @@ export default function RestaurantDashboard() {
             </AlertDialogBody>
 
             <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onClose}>
+              <Button ref={cancelRef} onClick={onStatusDialogClose}>
                 Cancel
               </Button>
               <Button colorScheme="teal" onClick={handleChangeOrderStatus} ml={3}>
@@ -787,6 +861,230 @@ export default function RestaurantDashboard() {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Order Details Modal */}
+      <Modal isOpen={isDetailsModalOpen} onClose={onDetailsModalClose} size="xl" scrollBehavior="inside">
+        <ModalOverlay backdropFilter="blur(5px)" />
+        <ModalContent borderRadius="xl">
+          <ModalHeader>
+            <Flex justify="space-between" align="center">
+              <Text>Order Details</Text>
+              <Badge
+                colorScheme={selectedOrder ? getStatusColor(selectedOrder.status) : "gray"}
+                fontSize="md"
+                px={3}
+                py={1}
+                display="flex"
+                alignItems="center"
+                gap={1}
+              >
+                {selectedOrder && getStatusIcon(selectedOrder.status)}
+                <Text>{selectedOrder?.status}</Text>
+              </Badge>
+            </Flex>
+            <ModalCloseButton />
+          </ModalHeader>
+          <ModalBody>
+            {selectedOrder && (
+              <VStack spacing={6} align="stretch">
+                {/* Order ID and Date */}
+                <Box bg={`${accentColor}11`} p={4} borderRadius="lg">
+                  <Flex justify="space-between" align="center" mb={2}>
+                    <Heading size="md">Order #{selectedOrder.id.substring(0, 8).toUpperCase()}</Heading>
+                    <Text fontSize="sm" color={mutedTextColor}>
+                      {formatOrderDate(selectedOrder.orderDate || selectedOrder.createdAt)}
+                    </Text>
+                  </Flex>
+                </Box>
+
+                {/* Customer Information */}
+                <Box>
+                  <Heading size="sm" mb={3} display="flex" alignItems="center">
+                    <User size={16} style={{ marginRight: "8px" }} /> Customer Information
+                  </Heading>
+                  <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={4}>
+                    <GridItem>
+                      <VStack align="start" spacing={2}>
+                        <HStack>
+                          <Avatar size="sm" name={selectedOrder.Customer?.name || "Customer"} />
+                          <Text fontWeight="medium">{selectedOrder.Customer?.name || "Customer"}</Text>
+                        </HStack>
+                        {selectedOrder.Customer?.email && <Text fontSize="sm">{selectedOrder.Customer.email}</Text>}
+                        {selectedOrder.Customer?.phone && (
+                          <Flex align="center">
+                            <Phone size={14} style={{ marginRight: "8px" }} />
+                            <Text fontSize="sm">{selectedOrder.Customer.phone}</Text>
+                          </Flex>
+                        )}
+                        {selectedOrder.Customer?.userName && (
+                          <Text fontSize="sm">Username: {selectedOrder.Customer.userName}</Text>
+                        )}
+                      </VStack>
+                    </GridItem>
+                    <GridItem>
+                      {selectedOrder.Restaurant?.address && (
+                        <VStack align="start" spacing={2}>
+                          <Flex align="center">
+                            <MapPin size={14} style={{ marginRight: "8px" }} />
+                            <Text fontWeight="medium">Restaurant Address</Text>
+                          </Flex>
+                          <Text fontSize="sm">{selectedOrder.Restaurant.address}</Text>
+                        </VStack>
+                      )}
+                    </GridItem>
+                  </Grid>
+                </Box>
+
+                {/* Order Items */}
+                <Box>
+                  <Heading size="sm" mb={3} display="flex" alignItems="center">
+                    <ShoppingBag size={16} style={{ marginRight: "8px" }} /> Order Items
+                  </Heading>
+                  <Table variant="simple" size="sm">
+                    <Thead bg={subtleColor}>
+                      <Tr>
+                        <Th>Item</Th>
+                        <Th isNumeric>Quantity</Th>
+                        {/* <Th isNumeric>Price</Th>
+                        <Th isNumeric>Total</Th> */}
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {selectedOrder.OrderDetail.singleProducts.map((product: SingleProductDetail) => (
+                        <Tr key={product.id}>
+                          <Td>
+                            <HStack>
+                              <Image
+                                src={product.Product.image || DEFAULT_PRODUCT_IMAGE}
+                                alt={product.Product.name}
+                                boxSize="32px"
+                                objectFit="cover"
+                                borderRadius="md"
+                                fallbackSrc="/placeholder.svg?height=32&width=32"
+                              />
+                              <Text>{product.Product.name}</Text>
+                            </HStack>
+                          </Td>
+                          <Td isNumeric>{product.quantity}</Td>
+                          {/* <Td isNumeric>
+                            $
+                            {product.Product.productPrices && product.Product.productPrices.length > 0
+                              ? product.Product.productPrices[0].price.toFixed(2)
+                              : "N/A"}
+                          </Td>
+                          <Td isNumeric>
+                            $
+                            {product.Product.productPrices && product.Product.productPrices.length > 0
+                              ? (product.quantity * product.Product.productPrices[0].price).toFixed(2)
+                              : "N/A"}
+                          </Td> */}
+                        </Tr>
+                      ))}
+                      {selectedOrder.OrderDetail.kits.map((kit: KitDetail) => (
+                        <Tr key={kit.id}>
+                          <Td>
+                            <HStack>
+                              <Box
+                                bg={`${secondaryColor}22`}
+                                p={1}
+                                borderRadius="md"
+                                display="flex"
+                                alignItems="center"
+                                justifyContent="center"
+                              >
+                                <Package size={16} color={secondaryColor} />
+                              </Box>
+                              <VStack align="start" spacing={0}>
+                                <Text>{kit.Kit.name} (Kit)</Text>
+                                <Box pl={2}>
+                                  {kit.products &&
+                                    kit.products.map((prod) => (
+                                      <Text key={prod.id} fontSize="xs" color={mutedTextColor}>
+                                        - {prod.quantity}x {prod.Product.name}
+                                      </Text>
+                                    ))}
+                                </Box>
+                              </VStack>
+                            </HStack>
+                          </Td>
+                          <Td isNumeric>{kit.quantity}</Td>
+                          <Td isNumeric>
+                            $
+                            {kit.Kit.KitPrice && kit.Kit.KitPrice.length > 0
+                              ? kit.Kit.KitPrice[0].price.toFixed(2)
+                              : "N/A"}
+                          </Td>
+                          <Td isNumeric>
+                            $
+                            {kit.Kit.KitPrice && kit.Kit.KitPrice.length > 0
+                              ? (kit.quantity * kit.Kit.KitPrice[0].price).toFixed(2)
+                              : "N/A"}
+                          </Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </Box>
+
+                {/* Order Summary */}
+                <Box bg={subtleColor} p={4} borderRadius="lg">
+                  <Heading size="sm" mb={3} display="flex" alignItems="center">
+                    <DollarSign size={16} style={{ marginRight: "8px" }} /> Order Summary
+                  </Heading>
+                  <VStack align="stretch" spacing={2}>
+                    <Flex justify="space-between">
+                      <Text fontSize="sm">Subtotal</Text>
+                      <Text fontSize="sm">${selectedOrder.totalPrice.toFixed(2)}</Text>
+                    </Flex>
+                    <Flex justify="space-between">
+                      <Text fontSize="sm">Delivery Fee</Text>
+                      <Text fontSize="sm">${(0).toFixed(2)}</Text>
+                    </Flex>
+                    <Divider my={1} />
+                    <Flex justify="space-between" fontWeight="bold">
+                      <Text>Total</Text>
+                      <Text>${selectedOrder.totalPrice.toFixed(2)}</Text>
+                    </Flex>
+                  </VStack>
+                </Box>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter borderTop="1px solid" borderColor={borderColor}>
+            <HStack spacing={3}>
+              <Button leftIcon={<Printer size={16} />} variant="outline" onClick={printOrderReceipt}>
+                Print Receipt
+              </Button>
+
+              {selectedOrder && selectedOrder.status === StatusOrder.Created && (
+                <Button
+                  colorScheme="blue"
+                  leftIcon={<Clock size={16} />}
+                  onClick={() => {
+                    onDetailsModalClose()
+                    confirmStatusChange(selectedOrder, StatusOrder.Accepted)
+                  }}
+                >
+                  Accept Order
+                </Button>
+              )}
+
+              {selectedOrder && selectedOrder.status === StatusOrder.Accepted && (
+                <Button
+                  colorScheme="green"
+                  leftIcon={<CheckCircle size={16} />}
+                  onClick={() => {
+                    onDetailsModalClose()
+                    confirmStatusChange(selectedOrder, StatusOrder.Finalized)
+                  }}
+                >
+                  Mark as Complete
+                </Button>
+              )}
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Container>
   )
 }

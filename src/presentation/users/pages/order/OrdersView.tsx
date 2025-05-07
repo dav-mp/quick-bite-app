@@ -214,8 +214,8 @@ export default function OrdersView() {
       return restaurantName.includes(searchLower) || orderId.includes(searchLower)
     })
     .sort((a, b) => {
-      const dateA = new Date(a.createdAt).getTime()
-      const dateB = new Date(b.createdAt).getTime()
+      const dateA = new Date(a.orderDate).getTime()
+      const dateB = new Date(b.orderDate).getTime()
       return sortNewest ? dateB - dateA : dateA - dateB
     })
 
@@ -468,7 +468,7 @@ export default function OrdersView() {
                       >
                         <Calendar size={14} />
                       </Box>
-                      <Text fontSize="sm">{formatDate(order.createdAt)}</Text>
+                      <Text fontSize="sm">{formatDate(order.orderDate)}</Text>
                     </HStack>
 
                     <HStack>
@@ -593,7 +593,7 @@ export default function OrdersView() {
                 <Box>
                   <Flex justify="space-between" mb={2}>
                     <Text fontWeight="medium">Order Date</Text>
-                    <Text>{formatDate(selectedOrder.createdAt)}</Text>
+                    <Text>{formatDate(selectedOrder.orderDate)}</Text>
                   </Flex>
                   <Divider />
                 </Box>
