@@ -31,13 +31,6 @@ export class AuthUseCase {
     );
   }
 
-  async confirm(email: string, code: string): Promise<any> {
-    if (!email || !code) {
-      throw new Error("Datos inválidos para confirmar usuario");
-    }
-    return await this.authRepo.confirmUser(email, code);
-  }
-
   async login(email: string, password: string): Promise<User> {
     if (!email || !password) {
       throw new Error("Datos inválidos para login");
