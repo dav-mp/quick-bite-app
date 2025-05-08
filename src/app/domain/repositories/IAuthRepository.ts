@@ -18,10 +18,7 @@ export interface IAuthRepository {
     phone: string,
     userName?: string): Promise<User>;
 
-  /**
-   * Confirma un usuario (puedes utilizar, por ejemplo, un código).
-   */
-  confirmUser(email: string, code: string): Promise<any>;
+
 
   /**
    * Inicia sesión con email y password.

@@ -5,8 +5,10 @@ import { DataCookies } from "../../domain/models/cookies/DataCookies";
 export const axiosInstance = axios.create({
     // baseURL: 'https://t2orimport.meta.env.xjhjd3.execute-api.us-east-1.amazonaws.com', // Aquí pondrías tu endpoint real
     baseURL: import.meta.env.VITE_API, // Aquí pondrías tu endpoint real
+    // baseURL: import.meta.env.VITE_API, // Aquí pondrías tu endpoint real
 });
 
+  
 
 axiosInstance.interceptors.request.use(
     async (config) => {
