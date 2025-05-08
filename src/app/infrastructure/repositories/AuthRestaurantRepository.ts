@@ -11,7 +11,7 @@ export class AuthRestaurantRepository implements IRestaurantAuthRepository {
    */
   async loginRestaurant(resId: string, password: string): Promise<RestaurantAuthResponse> {
     try {
-      const resp = await axiosInstance.post("/api/auth/restaurant/loginRestaurant", {
+      const resp = await axiosInstance.post("/api/auth/restaurant/login", {
         resId,
         password,
       });
@@ -29,7 +29,7 @@ export class AuthRestaurantRepository implements IRestaurantAuthRepository {
    */
   async logoutRestaurant(restaurantId: string): Promise<boolean> {
     try {
-      const resp = await axiosInstance.post("/api/auth/restaurant/logoutRestaurant", {
+      const resp = await axiosInstance.post("/api/auth/restaurant/logout", {
         restaurantId,
       });
       // El backend envía `true` si cierra exitosamente, o un error
