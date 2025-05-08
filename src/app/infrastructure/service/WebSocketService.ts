@@ -9,7 +9,7 @@ class WebSocketService {
   private socket: WebSocket | null = null
   private isConnected = false
   private isConnecting = false
-  private readonly WS_URL = "wss://quickbite-api.onrender.com"
+  private readonly WS_URL = import.meta.env.VITE_API
 
   /** Mensajes pendientes mientras se abre el socket */
   private pending: any[] = []
